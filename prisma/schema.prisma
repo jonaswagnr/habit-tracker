@@ -1,0 +1,28 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Habit {
+  id        String       @id @default(cuid())
+  name      String
+  createdAt DateTime    @default(now())
+  entries   HabitEntry[]
+}
+
+model HabitEntry {
+  id        String   @id @default(cuid())
+  date      DateTime
+  completed Boolean  @default(false)
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id])
+
+  @@unique([habitId, date])
+}
