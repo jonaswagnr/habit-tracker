@@ -6,6 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Plus, X, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import debounce from 'lodash/debounce';
 import { HabitHeaderMenu } from '@/components/habit-header-menu';
+import { 
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Habit {
   id: string;
@@ -30,6 +45,46 @@ const START_DATE = new Date('2024-10-24T00:00:00');
 const DEFAULT_PAGE_SIZE = 21;
 const MAX_PAGE_SIZE = 100;
 
+interface SortableHabitHeaderProps {
+  habit: {
+    id: string;
+    name: string;
+  };
+  onEdit: (id: string, newName: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function SortableHabitHeader({ habit, onEdit, onDelete }: SortableHabitHeaderProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: habit.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <th 
+      ref={setNodeRef}
+      style={style}
+      className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] text-center font-['Avenir_Next'] font-medium"
+      {...attributes}
+      {...listeners}
+    >
+      <HabitHeaderMenu
+        habit={habit}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    </th>
+  );
+}
+
 export function HabitTracker() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [newHabit, setNewHabit] = useState('');
@@ -46,6 +101,7 @@ export function HabitTracker() {
       updateJournal(date, journal);
     }, 1000)
   );
+  const [habitOrder, setHabitOrder] = useState<string[]>([]);
 
   useEffect(() => {
     setIsClient(true);
@@ -56,6 +112,21 @@ export function HabitTracker() {
   useEffect(() => {
     updateVisibleDays();
   }, [currentPage, pageSize, totalDays]);
+
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('habitOrder');
+    if (savedOrder) {
+      setHabitOrder(JSON.parse(savedOrder));
+    } else {
+      setHabitOrder(habits.map(h => h.id));
+    }
+  }, [habits]);
+
+  useEffect(() => {
+    if (habitOrder.length > 0) {
+      localStorage.setItem('habitOrder', JSON.stringify(habitOrder));
+    }
+  }, [habitOrder]);
 
   const initializeDays = () => {
     const days: TrackedDay[] = [];
@@ -280,6 +351,32 @@ export function HabitTracker() {
     return day === 0 || day === 6; // 0 ist Sonntag, 6 ist Samstag
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = (event: any) => {
+    const {active, over} = event;
+    
+    if (active.id !== over.id) {
+      setHabitOrder((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+        
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const sortedHabits = habits.slice().sort((a, b) => {
+    return habitOrder.indexOf(a.id) - habitOrder.indexOf(b.id);
+  });
+
   if (!isClient) {
     return null;
   }
@@ -297,97 +394,120 @@ export function HabitTracker() {
             value={newHabit}
             onChange={(e) => setNewHabit(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-            placeholder="Neuer Habit"
+            placeholder="New Habit"
             className="max-w-xs"
           />
           <Button onClick={addHabit} size="sm">
             <Plus className="w-4 h-4 mr-1" />
-            Hinzufügen
+            Add
           </Button>
         </div>
       </div>
 
       <div className="mb-4 overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium">
-                Weekday
-              </th>
-              <th className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] text-center font-['Avenir_Next'] font-medium">
-                Date
-              </th>
-              {habits.map((habit) => (
-                <th key={habit.id} className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] max-w-[150px] text-center font-['Avenir_Next'] font-medium">
-                  <HabitHeaderMenu
-                    habit={habit}
-                    onEdit={updateHabitName}
-                    onDelete={removeHabit}
-                  />
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium">
+                  Weekday
                 </th>
-              ))}
-              <th className="border-t border-b border-x-0 p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium">
-                Journal
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {trackedDays.map((day) => (
-              <tr 
-                key={formatDate(day.date)}
-                style={{
-                  backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white'
-                }}
-              >
-                <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center">
-                  {formatWeekday(day.date)}
-                </td>
-                <td className="border-b border-x-0 p-2 font-medium w-[150px] min-w-[150px] text-center">
-                  {formatDate(day.date)}
-                </td>
-                {habits.map((habit) => (
-                  <td
-                    key={habit.id}
-                    className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[150px] min-w-[150px] max-w-[150px]"
-                    onClick={() => toggleHabit(habit.id, day.date)}
-                    style={{
-                      backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : isWeekend(day.date) ? '#f4f4f4' : 'white',
-                      transition: 'background-color 0.2s'
-                    }}
-                  />
-                ))}
-                <td className="border-b border-x-0 p-0 w-[250px] min-w-[250px]">
-                  <textarea
-                    value={
-                      journalDrafts[formatDate(day.date)] ?? 
-                      habits[0]?.entries.find(
-                        e => formatDate(new Date(e.date)) === formatDate(day.date)
-                      )?.journal ?? ''
-                    }
-                    onChange={(e) => handleJournalChange(day.date, e.target.value)}
-                    onBlur={(e) => {
-                      updateJournal(day.date, e.target.value);
-                    }}
-                    placeholder="..."
-                    className="w-full h-full min-h-[38px] p-2 border-none resize-y
-                               focus:outline-none focus:ring-0
-                               text-[80%]"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      minHeight: '38px',
-                      maxHeight: '300px',
-                      backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white',
-                      display: 'block',
-                      lineHeight: '1.5',
-                      margin: 0,
-                    }}
-                  />
-                </td>
+                <th className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] text-center font-['Avenir_Next'] font-medium">
+                  Date
+                </th>
+                <SortableContext 
+                  items={habitOrder}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {sortedHabits.map((habit) => (
+                    <SortableHabitHeader
+                      key={habit.id}
+                      habit={habit}
+                      onEdit={(id: string, newName: string) => {
+                        try {
+                          fetch('/api/habits', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id, name: newName })
+                          }).then(response => {
+                            if (!response.ok) throw new Error('Failed to update habit');
+                            fetchHabits();
+                          });
+                        } catch (error) {
+                          console.error('Failed to update habit:', error);
+                        }
+                      }}
+                      onDelete={removeHabit}
+                    />
+                  ))}
+                </SortableContext>
+                <th className="border-t border-b border-x-0 p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium">
+                  Journal
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {trackedDays.map((day) => (
+                <tr 
+                  key={formatDate(day.date)}
+                  style={{
+                    backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white'
+                  }}
+                >
+                  <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center">
+                    {formatWeekday(day.date)}
+                  </td>
+                  <td className="border-b border-x-0 p-2 font-medium w-[150px] min-w-[150px] text-center">
+                    {formatDate(day.date)}
+                  </td>
+                  {sortedHabits.map((habit) => (
+                    <td
+                      key={habit.id}
+                      className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[150px] min-w-[150px] max-w-[150px]"
+                      onClick={() => toggleHabit(habit.id, day.date)}
+                      style={{
+                        backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : isWeekend(day.date) ? '#f4f4f4' : 'white',
+                        transition: 'background-color 0.2s'
+                      }}
+                    />
+                  ))}
+                  <td className="border-b border-x-0 p-0 w-[250px] min-w-[250px]">
+                    <textarea
+                      value={
+                        journalDrafts[formatDate(day.date)] ?? 
+                        habits[0]?.entries.find(
+                          e => formatDate(new Date(e.date)) === formatDate(day.date)
+                        )?.journal ?? ''
+                      }
+                      onChange={(e) => handleJournalChange(day.date, e.target.value)}
+                      onBlur={(e) => {
+                        updateJournal(day.date, e.target.value);
+                      }}
+                      placeholder="..."
+                      className="w-full h-full min-h-[38px] p-2 border-none resize-y
+                                 focus:outline-none focus:ring-0
+                                 text-[80%]"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        minHeight: '38px',
+                        maxHeight: '300px',
+                        backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white',
+                        display: 'block',
+                        lineHeight: '1.5',
+                        margin: 0,
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </DndContext>
       </div>
 
       <div className="flex justify-end items-center gap-4 mt-4">
