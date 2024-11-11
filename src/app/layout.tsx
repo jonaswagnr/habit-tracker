@@ -13,7 +13,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="de">
-      <body className="font-['Avenir_Next']">{children}</body>
+      <body className="w-full m-0 p-0">
+        <main className="w-full">
+          {children}
+        </main>
+      </body>
     </html>
   )
 }

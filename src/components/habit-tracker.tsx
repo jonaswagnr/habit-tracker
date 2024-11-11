@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, GripVertical } from 'lucide-react';
 import debounce from 'lodash/debounce';
 import { HabitHeaderMenu } from '@/components/habit-header-menu';
 import { 
@@ -27,6 +27,7 @@ interface Habit {
   name: string;
   active: boolean;
   entries: HabitEntry[];
+  emoji?: string;
 }
 
 interface HabitEntry {
@@ -50,11 +51,11 @@ interface SortableHabitHeaderProps {
     id: string;
     name: string;
   };
-  onEdit: (id: string, newName: string) => void;
+  onEdit: (id: string, newName: string, emoji: string) => void;
   onDelete: (id: string) => void;
 }
 
-function SortableHabitHeader({ habit, onEdit, onDelete }: SortableHabitHeaderProps) {
+function SortableHabitHeader({ habit, onEdit, onDelete }: any) {
   const {
     attributes,
     listeners,
@@ -72,7 +73,7 @@ function SortableHabitHeader({ habit, onEdit, onDelete }: SortableHabitHeaderPro
     <th 
       ref={setNodeRef}
       style={style}
-      className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] text-center font-['Avenir_Next'] font-medium"
+      className="border-t border-b border-x-0 p-2 w-[66px] min-w-[66px] max-w-[66px] text-center font-['Avenir_Next'] font-medium"
       {...attributes}
       {...listeners}
     >
@@ -102,6 +103,18 @@ export function HabitTracker() {
     }, 1000)
   );
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
+
+  // Sortierte Habits
+  const sortedHabits = useMemo(() => {
+    return habitOrder
+      .map(id => habits.find(h => h.id === id))
+      .filter((h): h is Habit => h !== undefined);
+  }, [habits, habitOrder]);
+
+  // Berechne die minimale Tabellenbreite
+  const minTableWidth = useMemo(() => {
+    return 80 + 150 + (sortedHabits.length * 66) + 250; // weekday + date + habits + journal
+  }, [sortedHabits.length]);
 
   useEffect(() => {
     setIsClient(true);
@@ -174,20 +187,26 @@ export function HabitTracker() {
   };
 
   const addHabit = async () => {
-    if (newHabit) {
-      try {
-        const response = await fetch('/api/habits', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newHabit })
-        });
-        
-        if (!response.ok) throw new Error('Failed to add habit');
-        setNewHabit('');
-        await fetchHabits();
-      } catch (error) {
-        console.error('Failed to add habit:', error);
-      }
+    if (!newHabit.trim()) return;
+
+    try {
+      const response = await fetch('/api/habits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newHabit })
+      });
+
+      if (!response.ok) throw new Error('Failed to add habit');
+      
+      const habit = await response.json();
+      
+      // Aktualisiere die habitOrder mit der neuen Habit-ID
+      setHabitOrder(prevOrder => [...prevOrder, habit.id]);
+      
+      await fetchHabits();
+      setNewHabit('');
+    } catch (error) {
+      console.error('Failed to add habit:', error);
     }
   };
 
@@ -211,21 +230,19 @@ export function HabitTracker() {
     setEditedName(habit.name);
   };
 
-  const updateHabitName = async (habitId: string) => {
-    if (!editedName.trim()) return;
-    
+  const updateHabitName = async (id: string, newName: string, emoji: string) => {
     try {
       const response = await fetch('/api/habits', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: habitId,
-          name: editedName.trim()
+        body: JSON.stringify({ 
+          id, 
+          name: newName,
+          emoji 
         })
       });
-      
+
       if (!response.ok) throw new Error('Failed to update habit');
-      setEditingHabit(null);
       await fetchHabits();
     } catch (error) {
       console.error('Failed to update habit:', error);
@@ -373,44 +390,45 @@ export function HabitTracker() {
     }
   };
 
-  const sortedHabits = habits.slice().sort((a, b) => {
-    return habitOrder.indexOf(a.id) - habitOrder.indexOf(b.id);
-  });
-
   if (!isClient) {
     return null;
   }
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">
-        Quantified Self
-      </h2>
-      
-      <div className="flex justify-end mb-4">
-        <div className="flex gap-2">
-          <Input
-            type="text"
-            value={newHabit}
-            onChange={(e) => setNewHabit(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-            placeholder="New Habit"
-            className="max-w-xs"
-          />
-          <Button onClick={addHabit} size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            Add
-          </Button>
+    <div className="w-full">
+      <div className="px-6 py-4">
+        <h2 className="text-2xl font-bold mb-4">
+          Quantified Self
+        </h2>
+        
+        <div className="flex justify-end mb-4">
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={newHabit}
+              onChange={(e) => setNewHabit(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addHabit()}
+              placeholder="New Habit"
+              className="max-w-xs"
+            />
+            <Button onClick={addHabit} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Add
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="mb-4 overflow-x-auto">
+      <div className="w-full overflow-x-auto">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <table className="w-full border-collapse">
+          <table 
+            className="border-collapse w-full" 
+            style={{ minWidth: `${minTableWidth}px` }}
+          >
             <thead>
               <tr>
                 <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium">
@@ -427,20 +445,7 @@ export function HabitTracker() {
                     <SortableHabitHeader
                       key={habit.id}
                       habit={habit}
-                      onEdit={(id: string, newName: string) => {
-                        try {
-                          fetch('/api/habits', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id, name: newName })
-                          }).then(response => {
-                            if (!response.ok) throw new Error('Failed to update habit');
-                            fetchHabits();
-                          });
-                        } catch (error) {
-                          console.error('Failed to update habit:', error);
-                        }
-                      }}
+                      onEdit={updateHabitName}
                       onDelete={removeHabit}
                     />
                   ))}
@@ -467,7 +472,7 @@ export function HabitTracker() {
                   {sortedHabits.map((habit) => (
                     <td
                       key={habit.id}
-                      className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[150px] min-w-[150px] max-w-[150px]"
+                      className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[66px] min-w-[66px] max-w-[66px]"
                       onClick={() => toggleHabit(habit.id, day.date)}
                       style={{
                         backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : isWeekend(day.date) ? '#f4f4f4' : 'white',
@@ -477,29 +482,13 @@ export function HabitTracker() {
                   ))}
                   <td className="border-b border-x-0 p-0 w-[250px] min-w-[250px]">
                     <textarea
-                      value={
-                        journalDrafts[formatDate(day.date)] ?? 
-                        habits[0]?.entries.find(
-                          e => formatDate(new Date(e.date)) === formatDate(day.date)
-                        )?.journal ?? ''
-                      }
+                      value={journalDrafts[formatDate(day.date)] ?? habits[0]?.entries.find(e => formatDate(new Date(e.date)) === formatDate(day.date))?.journal ?? ''}
                       onChange={(e) => handleJournalChange(day.date, e.target.value)}
-                      onBlur={(e) => {
-                        updateJournal(day.date, e.target.value);
-                      }}
+                      onBlur={(e) => updateJournal(day.date, e.target.value)}
                       placeholder="..."
-                      className="w-full h-full min-h-[38px] p-2 border-none resize-y
-                                 focus:outline-none focus:ring-0
-                                 text-[80%]"
+                      className="w-full h-full min-h-[38px] p-2 border-none resize-y focus:outline-none focus:ring-0 text-[80%]"
                       style={{
-                        width: '100%',
-                        height: '100%',
-                        minHeight: '38px',
-                        maxHeight: '300px',
                         backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white',
-                        display: 'block',
-                        lineHeight: '1.5',
-                        margin: 0,
                       }}
                     />
                   </td>
@@ -510,38 +499,40 @@ export function HabitTracker() {
         </DndContext>
       </div>
 
-      <div className="flex justify-end items-center gap-4 mt-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="pageSize" className="whitespace-nowrap">Zeilen pro Seite:</label>
-          <Input
-            id="pageSize"
-            type="number"
-            min="1"
-            max={MAX_PAGE_SIZE}
-            value={pageSize}
-            onChange={handlePageSizeChange}
-            className="w-20"
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-            disabled={currentPage === 0}
-            size="sm"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <span>
-            Seite {currentPage + 1} von {totalPages}
-          </span>
-          <Button
-            onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
-            disabled={currentPage >= totalPages - 1}
-            size="sm"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+      <div className="px-6 py-4">
+        <div className="flex justify-end items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="pageSize" className="whitespace-nowrap">Zeilen pro Seite:</label>
+            <Input
+              id="pageSize"
+              type="number"
+              min="1"
+              max={MAX_PAGE_SIZE}
+              value={pageSize}
+              onChange={handlePageSizeChange}
+              className="w-20"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              size="sm"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span>
+              Seite {currentPage + 1} von {totalPages}
+            </span>
+            <Button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage >= totalPages - 1}
+              size="sm"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

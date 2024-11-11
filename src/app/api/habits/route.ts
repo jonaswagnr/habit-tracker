@@ -96,16 +96,20 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const json = await request.json();
-    const { id, name } = json;
-    
+    const body = await request.json();
+    const { id, name, emoji } = body;
+
     const updatedHabit = await prisma.habit.update({
       where: { id },
-      data: { name }
+      data: {
+        name,
+        emoji,
+      },
     });
-    
+
     return NextResponse.json(updatedHabit);
   } catch (error) {
+    console.error('Failed to update habit:', error);
     return NextResponse.json(
       { error: 'Failed to update habit' },
       { status: 500 }
