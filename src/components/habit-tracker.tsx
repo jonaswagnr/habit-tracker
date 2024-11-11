@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import debounce from 'lodash/debounce';
+import { HabitHeaderMenu } from '@/components/habit-header-menu';
 
 interface Habit {
   id: string;
@@ -194,7 +195,7 @@ export function HabitTracker() {
   };
 
   const formatWeekday = (date: Date): string => {
-    const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return weekdays[date.getDay()];
   };
 
@@ -274,6 +275,11 @@ export function HabitTracker() {
     debouncedUpdate(date, value);
   };
 
+  const isWeekend = (date: Date): boolean => {
+    const day = date.getDay();
+    return day === 0 || day === 6; // 0 ist Sonntag, 6 ist Samstag
+  };
+
   if (!isClient) {
     return null;
   }
@@ -305,104 +311,81 @@ export function HabitTracker() {
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="border p-2 bg-gray-100 w-[150px] min-w-[150px]">Wochentag</th>
-              <th className="border p-2 bg-gray-100 w-[150px] min-w-[150px]">Datum</th>
+              <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium">
+                Weekday
+              </th>
+              <th className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] text-center font-['Avenir_Next'] font-medium">
+                Date
+              </th>
               {habits.map((habit) => (
-                <th key={habit.id} className="border p-2 bg-gray-100 w-[150px] min-w-[150px] max-w-[150px]">
-                  <div className="flex items-center justify-between group">
-                    {editingHabit === habit.id ? (
-                      <Input
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        onKeyDown={(e) => handleEditKeyDown(e, habit.id)}
-                        onBlur={() => updateHabitName(habit.id)}
-                        className="min-w-0 w-full"
-                        autoFocus
-                      />
-                    ) : (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="truncate mr-2">{habit.name}</span>
-                        <div className="flex items-center flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEditing(habit)}
-                            className="p-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeHabit(habit.id);
-                            }}
-                            className="ml-1 p-1 h-6 w-6"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                <th key={habit.id} className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] max-w-[150px] text-center font-['Avenir_Next'] font-medium">
+                  <HabitHeaderMenu
+                    habit={habit}
+                    onEdit={updateHabitName}
+                    onDelete={removeHabit}
+                  />
                 </th>
               ))}
-              <th className="border p-2 bg-gray-100 w-[250px] min-w-[250px]">
+              <th className="border-t border-b border-x-0 p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium">
                 Journal
               </th>
             </tr>
           </thead>
           <tbody>
-            {trackedDays.map((day) => {
-              const todayCheck = isToday(day.date);
-              return (
-                <tr key={formatDate(day.date)} className={todayCheck ? 'bg-blue-50' : ''}>
-                  <td className="border p-2 font-medium w-[150px] min-w-[150px]">
-                    {formatWeekday(day.date)}
-                  </td>
-                  <td className="border p-2 font-medium w-[150px] min-w-[150px]">
-                    {formatDate(day.date)}
-                  </td>
-                  {habits.map((habit) => (
-                    <td
-                      key={habit.id}
-                      className="border p-2 text-center cursor-pointer hover:bg-gray-50 w-[150px] min-w-[150px] max-w-[150px]"
-                      onClick={() => toggleHabit(habit.id, day.date)}
-                      style={{
-                        backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : 'white',
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      {isHabitCompleted(habit, day.date) ? '✓' : ''}
-                    </td>
-                  ))}
-                  <td className="border p-2 w-[250px] min-w-[250px]">
-                    <textarea
-                      value={
-                        journalDrafts[formatDate(day.date)] ?? 
-                        habits[0]?.entries.find(
-                          e => formatDate(new Date(e.date)) === formatDate(day.date)
-                        )?.journal ?? ''
-                      }
-                      onChange={(e) => handleJournalChange(day.date, e.target.value)}
-                      onBlur={(e) => {
-                        updateJournal(day.date, e.target.value);
-                      }}
-                      placeholder="..."
-                      className="w-full min-h-[38px] p-2 rounded border border-input resize-y
-                                 focus:outline-none focus:ring-2 focus:ring-ring
-                                 focus:border-input text-[80%]"
-                      style={{
-                        width: '100%',
-                        minHeight: '38px',
-                        maxHeight: '300px'
-                      }}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
+            {trackedDays.map((day) => (
+              <tr 
+                key={formatDate(day.date)}
+                style={{
+                  backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white'
+                }}
+              >
+                <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center">
+                  {formatWeekday(day.date)}
+                </td>
+                <td className="border-b border-x-0 p-2 font-medium w-[150px] min-w-[150px] text-center">
+                  {formatDate(day.date)}
+                </td>
+                {habits.map((habit) => (
+                  <td
+                    key={habit.id}
+                    className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[150px] min-w-[150px] max-w-[150px]"
+                    onClick={() => toggleHabit(habit.id, day.date)}
+                    style={{
+                      backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : isWeekend(day.date) ? '#f4f4f4' : 'white',
+                      transition: 'background-color 0.2s'
+                    }}
+                  />
+                ))}
+                <td className="border-b border-x-0 p-0 w-[250px] min-w-[250px]">
+                  <textarea
+                    value={
+                      journalDrafts[formatDate(day.date)] ?? 
+                      habits[0]?.entries.find(
+                        e => formatDate(new Date(e.date)) === formatDate(day.date)
+                      )?.journal ?? ''
+                    }
+                    onChange={(e) => handleJournalChange(day.date, e.target.value)}
+                    onBlur={(e) => {
+                      updateJournal(day.date, e.target.value);
+                    }}
+                    placeholder="..."
+                    className="w-full h-full min-h-[38px] p-2 border-none resize-y
+                               focus:outline-none focus:ring-0
+                               text-[80%]"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      minHeight: '38px',
+                      maxHeight: '300px',
+                      backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white',
+                      display: 'block',
+                      lineHeight: '1.5',
+                      margin: 0,
+                    }}
+                  />
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
