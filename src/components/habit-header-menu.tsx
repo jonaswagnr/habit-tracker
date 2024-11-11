@@ -31,8 +31,20 @@ export function HabitHeaderMenu({ habit, onEdit, onDelete }: HabitHeaderMenuProp
     setShowEmojiPicker(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    
+    if (e.key === 'Enter') {
+      handleSubmit();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditName(e.target.value);
+  };
+
   const handleSubmit = () => {
-    onEdit(habit.id, editName, editEmoji);
+    onEdit(habit.id, editName.trim(), editEmoji);
     setOpen(false);
   };
 
@@ -96,8 +108,10 @@ export function HabitHeaderMenu({ habit, onEdit, onDelete }: HabitHeaderMenuProp
                 <label className="text-sm font-medium">Habit Name</label>
                 <Input
                   value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
+                  onChange={handleInputChange}
                   className="w-full"
+                  onKeyDown={handleKeyDown}
+                  autoComplete="off"
                 />
               </div>
               

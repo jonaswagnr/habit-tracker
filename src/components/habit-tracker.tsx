@@ -435,7 +435,7 @@ export function HabitTracker() {
   return (
     <div className="w-full">
       <div className="px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
-        <h2 className="text-2xl font-bold">
+        <h2 className="text-4xl font-bold">
           Quantified Self
         </h2>
         
