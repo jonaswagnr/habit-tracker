@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
+import debounce from 'lodash/debounce';
 
 interface Habit {
   id: string;
@@ -17,6 +18,7 @@ interface HabitEntry {
   date: string;
   completed: boolean;
   habitId: string;
+  journal?: string;
 }
 
 interface TrackedDay {
@@ -37,6 +39,12 @@ export function HabitTracker() {
   const [totalDays, setTotalDays] = useState<TrackedDay[]>([]);
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [editedName, setEditedName] = useState('');
+  const [journalDrafts, setJournalDrafts] = useState<Record<string, string>>({});
+  const [debouncedUpdate] = useState(() => 
+    debounce((date: Date, journal: string) => {
+      updateJournal(date, journal);
+    }, 1000)
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -213,6 +221,59 @@ export function HabitTracker() {
 
   const totalPages = Math.ceil(totalDays.length / pageSize);
 
+  const updateJournal = async (date: Date, journal: string) => {
+    try {
+      const primaryHabit = habits[0];
+      if (!primaryHabit) return;
+
+      console.log('Updating journal:', { date, journal, habitId: primaryHabit.id });
+
+      const response = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          habitId: primaryHabit.id,
+          date: formatDate(date),
+          completed: isHabitCompleted(primaryHabit, date),
+          journal: journal
+        })
+      });
+      
+      if (!response.ok) {
+        console.error('Server response not ok:', await response.text());
+        throw new Error('Failed to update journal');
+      }
+
+      const responseData = await response.json();
+      console.log('Server response:', responseData);
+      
+      await fetchHabits();
+    } catch (error) {
+      console.error('Failed to update journal:', error);
+    }
+  };
+
+  function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    wait: number
+  ): (...args: Parameters<T>) => void {
+    let timeout: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    };
+  }
+
+  const handleJournalChange = (date: Date, value: string) => {
+    console.log('Journal change:', { date, value });
+    const dateKey = formatDate(date);
+    setJournalDrafts(prev => ({
+      ...prev,
+      [dateKey]: value
+    }));
+    debouncedUpdate(date, value);
+  };
+
   if (!isClient) {
     return null;
   }
@@ -220,7 +281,7 @@ export function HabitTracker() {
   return (
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">
-        Habit Tracker
+        Quantified Self
       </h2>
       
       <div className="flex justify-end mb-4">
@@ -287,6 +348,9 @@ export function HabitTracker() {
                   </div>
                 </th>
               ))}
+              <th className="border p-2 bg-gray-100 w-[250px] min-w-[250px]">
+                Journal
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -313,6 +377,29 @@ export function HabitTracker() {
                       {isHabitCompleted(habit, day.date) ? '✓' : ''}
                     </td>
                   ))}
+                  <td className="border p-2 w-[250px] min-w-[250px]">
+                    <textarea
+                      value={
+                        journalDrafts[formatDate(day.date)] ?? 
+                        habits[0]?.entries.find(
+                          e => formatDate(new Date(e.date)) === formatDate(day.date)
+                        )?.journal ?? ''
+                      }
+                      onChange={(e) => handleJournalChange(day.date, e.target.value)}
+                      onBlur={(e) => {
+                        updateJournal(day.date, e.target.value);
+                      }}
+                      placeholder="..."
+                      className="w-full min-h-[38px] p-2 rounded border border-input resize-y
+                                 focus:outline-none focus:ring-2 focus:ring-ring
+                                 focus:border-input text-[80%]"
+                      style={{
+                        width: '100%',
+                        minHeight: '38px',
+                        maxHeight: '300px'
+                      }}
+                    />
+                  </td>
                 </tr>
               );
             })}

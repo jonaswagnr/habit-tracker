@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const json = await request.json();
-    const { habitId, date, completed } = json;
+    const { habitId, date, completed, journal } = json;
     
     const entry = await prisma.habitEntry.upsert({
       where: {
@@ -15,11 +15,13 @@ export async function POST(request: Request) {
       },
       update: {
         completed,
+        journal,
       },
       create: {
         habitId,
         date: new Date(date),
         completed,
+        journal,
       },
     });
     

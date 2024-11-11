@@ -20,6 +20,7 @@ model HabitEntry {
   id        String   @id @default(cuid())
   date      DateTime
   completed Boolean  @default(false)
+  journal   String?  // Neues optionales Feld für Journal-Einträge
   habitId   String
   habit     Habit    @relation(fields: [habitId], references: [id])
 
