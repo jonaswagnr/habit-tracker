@@ -86,6 +86,44 @@ function SortableHabitHeader({ habit, onEdit, onDelete }: any) {
   );
 }
 
+// Direkt nach den Interfaces und vor der HabitTracker-Komponente:
+const STREAK_COLORS = ["b7efc5", "92e6a7", "6ede8a", "4ad66d", "2dc653", "25a244", "208b3a", "1a7431", "155d27", "10451d"];
+
+// Hilfsfunktionen vor der HabitTracker-Komponente definieren
+const formatDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const calculateStreak = (habit: Habit, date: Date): number => {
+  let streak = 0;
+  let currentDate = new Date(date);
+  
+  while (true) {
+    const isCompleted = habit.entries?.some(
+      entry => formatDate(new Date(entry.date)) === formatDate(currentDate) && entry.completed
+    );
+    
+    if (!isCompleted) break;
+    
+    streak++;
+    
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+  
+  return streak;
+};
+
+const getStreakColor = (habit: Habit, date: Date): string => {
+  const streak = calculateStreak(habit, date);
+  if (streak === 0) return 'white';
+  
+  const colorIndex = Math.min(streak - 1, STREAK_COLORS.length - 1);
+  return `#${STREAK_COLORS[colorIndex]}`;
+};
+
 export function HabitTracker() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [newHabit, setNewHabit] = useState('');
@@ -113,7 +151,7 @@ export function HabitTracker() {
 
   // Berechne die minimale Tabellenbreite
   const minTableWidth = useMemo(() => {
-    return 80 + 150 + (sortedHabits.length * 66) + 250; // weekday + date + habits + journal
+    return 80 + 100 + (sortedHabits.length * 66) + 250; // weekday + date + habits + journal
   }, [sortedHabits.length]);
 
   useEffect(() => {
@@ -396,26 +434,24 @@ export function HabitTracker() {
 
   return (
     <div className="w-full">
-      <div className="px-6 py-4">
-        <h2 className="text-2xl font-bold mb-4">
+      <div className="px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
+        <h2 className="text-2xl font-bold">
           Quantified Self
         </h2>
         
-        <div className="flex justify-end mb-4">
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              value={newHabit}
-              onChange={(e) => setNewHabit(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-              placeholder="New Habit"
-              className="max-w-xs"
-            />
-            <Button onClick={addHabit} size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              Add
-            </Button>
-          </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Input
+            type="text"
+            value={newHabit}
+            onChange={(e) => setNewHabit(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addHabit()}
+            placeholder="New Habit"
+            className="w-full sm:w-auto sm:max-w-xs"
+          />
+          <Button onClick={addHabit} size="sm">
+            <Plus className="w-4 h-4 mr-1" />
+            Add
+          </Button>
         </div>
       </div>
 
@@ -434,7 +470,7 @@ export function HabitTracker() {
                 <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium">
                   Weekday
                 </th>
-                <th className="border-t border-b border-x-0 p-2 w-[150px] min-w-[150px] text-center font-['Avenir_Next'] font-medium">
+                <th className="border-t border-b border-x-0 p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium">
                   Date
                 </th>
                 <SortableContext 
@@ -466,7 +502,7 @@ export function HabitTracker() {
                   <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center">
                     {formatWeekday(day.date)}
                   </td>
-                  <td className="border-b border-x-0 p-2 font-medium w-[150px] min-w-[150px] text-center">
+                  <td className="border-b border-x-0 p-2 font-medium w-[100px] min-w-[100px] max-w-[100px] text-center">
                     {formatDate(day.date)}
                   </td>
                   {sortedHabits.map((habit) => (
@@ -475,7 +511,9 @@ export function HabitTracker() {
                       className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[66px] min-w-[66px] max-w-[66px]"
                       onClick={() => toggleHabit(habit.id, day.date)}
                       style={{
-                        backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : isWeekend(day.date) ? '#f4f4f4' : 'white',
+                        backgroundColor: isHabitCompleted(habit, day.date) 
+                          ? getStreakColor(habit, day.date)
+                          : isWeekend(day.date) ? '#f4f4f4' : 'white',
                         transition: 'background-color 0.2s'
                       }}
                     />
