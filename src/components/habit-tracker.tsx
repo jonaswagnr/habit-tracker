@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 
 interface Habit {
   id: string;
   name: string;
+  active: boolean;
   entries: HabitEntry[];
 }
 
@@ -34,6 +35,8 @@ export function HabitTracker() {
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [totalDays, setTotalDays] = useState<TrackedDay[]>([]);
+  const [editingHabit, setEditingHabit] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState('');
 
   useEffect(() => {
     setIsClient(true);
@@ -123,6 +126,40 @@ export function HabitTracker() {
     }
   };
 
+  const startEditing = (habit: Habit) => {
+    setEditingHabit(habit.id);
+    setEditedName(habit.name);
+  };
+
+  const updateHabitName = async (habitId: string) => {
+    if (!editedName.trim()) return;
+    
+    try {
+      const response = await fetch('/api/habits', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: habitId,
+          name: editedName.trim()
+        })
+      });
+      
+      if (!response.ok) throw new Error('Failed to update habit');
+      setEditingHabit(null);
+      await fetchHabits();
+    } catch (error) {
+      console.error('Failed to update habit:', error);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, habitId: string) => {
+    if (e.key === 'Enter') {
+      updateHabitName(habitId);
+    } else if (e.key === 'Escape') {
+      setEditingHabit(null);
+    }
+  };
+
   const toggleHabit = async (habitId: string, date: Date) => {
     const dateString = formatDate(date);
     const currentEntry = habits
@@ -186,22 +223,104 @@ export function HabitTracker() {
         Habit Tracker
       </h2>
       
-      <div className="mb-4 flex gap-2">
-        <Input
-          type="text"
-          value={newHabit}
-          onChange={(e) => setNewHabit(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-          placeholder="Neuer Habit"
-          className="max-w-xs"
-        />
-        <Button onClick={addHabit} size="sm">
-          <Plus className="w-4 h-4 mr-1" />
-          Hinzufügen
-        </Button>
+      <div className="flex justify-end mb-4">
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            value={newHabit}
+            onChange={(e) => setNewHabit(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addHabit()}
+            placeholder="Neuer Habit"
+            className="max-w-xs"
+          />
+          <Button onClick={addHabit} size="sm">
+            <Plus className="w-4 h-4 mr-1" />
+            Hinzufügen
+          </Button>
+        </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="border p-2 bg-gray-100 w-[150px] min-w-[150px]">Wochentag</th>
+              <th className="border p-2 bg-gray-100 w-[150px] min-w-[150px]">Datum</th>
+              {habits.map((habit) => (
+                <th key={habit.id} className="border p-2 bg-gray-100 w-[150px] min-w-[150px] max-w-[150px]">
+                  <div className="flex items-center justify-between group">
+                    {editingHabit === habit.id ? (
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyDown={(e) => handleEditKeyDown(e, habit.id)}
+                        onBlur={() => updateHabitName(habit.id)}
+                        className="min-w-0 w-full"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="truncate mr-2">{habit.name}</span>
+                        <div className="flex items-center flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEditing(habit)}
+                            className="p-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeHabit(habit.id);
+                            }}
+                            className="ml-1 p-1 h-6 w-6"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {trackedDays.map((day) => {
+              const todayCheck = isToday(day.date);
+              return (
+                <tr key={formatDate(day.date)} className={todayCheck ? 'bg-blue-50' : ''}>
+                  <td className="border p-2 font-medium w-[150px] min-w-[150px]">
+                    {formatWeekday(day.date)}
+                  </td>
+                  <td className="border p-2 font-medium w-[150px] min-w-[150px]">
+                    {formatDate(day.date)}
+                  </td>
+                  {habits.map((habit) => (
+                    <td
+                      key={habit.id}
+                      className="border p-2 text-center cursor-pointer hover:bg-gray-50 w-[150px] min-w-[150px] max-w-[150px]"
+                      onClick={() => toggleHabit(habit.id, day.date)}
+                      style={{
+                        backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : 'white',
+                        transition: 'background-color 0.2s'
+                      }}
+                    >
+                      {isHabitCompleted(habit, day.date) ? '✓' : ''}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-end items-center gap-4 mt-4">
         <div className="flex items-center gap-2">
           <label htmlFor="pageSize" className="whitespace-nowrap">Zeilen pro Seite:</label>
           <Input
@@ -234,63 +353,6 @@ export function HabitTracker() {
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="border p-2 bg-gray-100">Wochentag</th>
-              <th className="border p-2 bg-gray-100">Datum</th>
-              {habits.map((habit) => (
-                <th key={habit.id} className="border p-2 bg-gray-100">
-                  <div className="flex items-center justify-between">
-                    <span>{habit.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeHabit(habit.id);
-                      }}
-                      className="ml-2 p-1 h-6 w-6"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {trackedDays.map((day) => {
-              const todayCheck = isToday(day.date);
-              return (
-                <tr key={formatDate(day.date)} className={todayCheck ? 'bg-blue-50' : ''}>
-                  <td className="border p-2 font-medium">
-                    {formatWeekday(day.date)}
-                  </td>
-                  <td className="border p-2 font-medium">
-                    {formatDate(day.date)}
-                  </td>
-                  {habits.map((habit) => (
-                    <td
-                      key={habit.id}
-                      className="border p-2 text-center cursor-pointer hover:bg-gray-50"
-                      onClick={() => toggleHabit(habit.id, day.date)}
-                      style={{
-                        backgroundColor: isHabitCompleted(habit, day.date) ? '#86efac' : 'white',
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      {isHabitCompleted(habit, day.date) ? '✓' : ''}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
       </div>
     </div>
   );

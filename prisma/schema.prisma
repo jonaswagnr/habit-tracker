@@ -1,6 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,7 +11,8 @@ datasource db {
 model Habit {
   id        String       @id @default(cuid())
   name      String
-  createdAt DateTime    @default(now())
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
   entries   HabitEntry[]
 }
 
