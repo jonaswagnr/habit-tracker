@@ -1,5 +1,6 @@
 import './globals.css'
 import './fonts.css'
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata = {
   title: 'Habit Tracker',
@@ -17,6 +18,7 @@ export default function RootLayout({
         <main className="w-full">
           {children}
         </main>
+        <Toaster />
       </body>
     </html>
   )

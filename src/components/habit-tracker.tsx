@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, GripVertical, Download } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, GripVertical, Download, Upload } from 'lucide-react';
 import debounce from 'lodash/debounce';
 import { HabitHeaderMenu } from '@/components/habit-header-menu';
 import { 
@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface Habit {
   id: string;
@@ -161,6 +163,7 @@ export function HabitTracker() {
     }, 1000)
   );
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
+  const { toast } = useToast();
 
   // Sortierte Habits
   const sortedHabits = useMemo(() => {
@@ -503,6 +506,116 @@ export function HabitTracker() {
     );
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileContent = await file.text();
+      let importData;
+
+      if (file.name.endsWith('.json')) {
+        console.log('Parsing JSON file');
+        const jsonData = JSON.parse(fileContent);
+        
+        // Transform JSON data into the expected format
+        // First, collect all unique habit names
+        const habitNames = new Set<string>();
+        jsonData.forEach((day: any) => {
+          Object.keys(day.habits).forEach(habitName => {
+            habitNames.add(habitName);
+          });
+        });
+
+        // Then create the habit entries
+        importData = Array.from(habitNames).map(habitName => ({
+          name: habitName,
+          entries: jsonData.map((day: any) => ({
+            date: day.date,
+            completed: day.habits[habitName] || false,
+            journal: day.journal // Journal will only be stored with the first habit
+          }))
+        }));
+
+        console.log('Transformed JSON data:', importData);
+      } else if (file.name.endsWith('.csv')) {
+        importData = parseCSV(fileContent);
+      } else {
+        throw new Error('Unsupported file format');
+      }
+
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habits: importData })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Import failed');
+      }
+
+      toast({
+        title: "Success",
+        description: "Data imported successfully",
+      });
+
+      // Refresh habits list
+      await fetchHabits();
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to import data",
+        variant: "destructive",
+      });
+    }
+
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const parseCSV = (content: string) => {
+    console.log('Raw CSV content:', content);
+    const lines = content.split('\n');
+    const headers = lines[0].split(',');
+    console.log('CSV headers:', headers);
+
+    // Extract habit names (all columns except Date, Weekday, and Journal)
+    const habitNames = headers.slice(1, -1).filter(name => name !== 'Weekday');
+    console.log('Detected habits:', habitNames);
+
+    // Initialize habits array
+    const habits = habitNames.map(name => ({
+      name: name.trim(),
+      entries: []
+    }));
+
+    // Process each line
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      
+      const values = lines[i].split(',');
+      const date = values[0];
+      const journal = values[values.length - 1]?.replace(/^"|"$/g, '');
+      
+      // Process each habit's completion status
+      habitNames.forEach((_, index) => {
+        const valueIndex = index + 2; // +2 to skip Date and Weekday
+        const completed = values[valueIndex]?.trim() === '1';
+        
+        habits[index].entries.push({
+          date,
+          completed,
+          journal: index === 0 ? journal : undefined // Only store journal with first habit
+        });
+      });
+    }
+
+    console.log('Processed CSV data:', habits);
+    return habits;
+  };
+
   if (!isClient) {
     return null;
   }
@@ -551,11 +664,45 @@ export function HabitTracker() {
                 <DropdownMenuItem>Preferences</DropdownMenuItem>
                 <Separator className="my-1" />
                 <DropdownMenuItem onClick={exportToCSV}>
+                  <Download className="w-4 h-4 mr-2" />
                   Export as CSV
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={exportToJSON}>
+                  <Download className="w-4 h-4 mr-2" />
                   Export as JSON
                 </DropdownMenuItem>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Import Data
+                    </DropdownMenuItem>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Import Data</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="flex flex-col gap-2">
+                        <label htmlFor="file-upload" className="text-sm font-medium">
+                          Choose a file to import
+                        </label>
+                        <Input
+                          id="file-upload"
+                          type="file"
+                          accept=".csv,.json"
+                          onChange={(e) => {
+                            console.log("File input change event triggered");
+                            handleFileUpload(e);
+                          }}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Supported formats: CSV, JSON
+                        </p>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <Separator className="my-1" />
                 <DropdownMenuItem className="text-red-600">
                   Logout
