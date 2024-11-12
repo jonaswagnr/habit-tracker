@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, GripVertical } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, GripVertical, Download } from 'lucide-react';
 import debounce from 'lodash/debounce';
 import { HabitHeaderMenu } from '@/components/habit-header-menu';
 import { 
@@ -21,6 +21,14 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 
 interface Habit {
   id: string;
@@ -122,6 +130,18 @@ const getStreakColor = (habit: Habit, date: Date): string => {
   
   const colorIndex = Math.min(streak - 1, STREAK_COLORS.length - 1);
   return `#${STREAK_COLORS[colorIndex]}`;
+};
+
+const downloadFile = (content: string, filename: string, type: string) => {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 export function HabitTracker() {
@@ -428,6 +448,61 @@ export function HabitTracker() {
     }
   };
 
+  const exportToCSV = () => {
+    // Headers
+    let csv = ['Date,Weekday'];
+    sortedHabits.forEach(habit => {
+      csv[0] += `,${habit.name}`;
+    });
+    csv[0] += ',Journal';
+
+    // Data rows
+    trackedDays.forEach(day => {
+      const dateStr = formatDate(day.date);
+      let row = `${dateStr},${formatWeekday(day.date)}`;
+      
+      sortedHabits.forEach(habit => {
+        const completed = isHabitCompleted(habit, day.date) ? '1' : '0';
+        row += `,${completed}`;
+      });
+
+      // Add journal entry
+      const journalEntry = habits[0]?.entries.find(
+        e => formatDate(new Date(e.date)) === dateStr
+      )?.journal || '';
+      row += `,"${journalEntry.replace(/"/g, '""')}"`;  // Escape quotes in journal
+
+      csv.push(row);
+    });
+
+    downloadFile(csv.join('\n'), 'habits.csv', 'text/csv');
+  };
+
+  const exportToJSON = () => {
+    const exportData = trackedDays.map(day => {
+      const dateStr = formatDate(day.date);
+      const habitData = sortedHabits.reduce((acc, habit) => {
+        acc[habit.name] = isHabitCompleted(habit, day.date);
+        return acc;
+      }, {} as Record<string, boolean>);
+
+      return {
+        date: dateStr,
+        weekday: formatWeekday(day.date),
+        habits: habitData,
+        journal: habits[0]?.entries.find(
+          e => formatDate(new Date(e.date)) === dateStr
+        )?.journal || ''
+      };
+    });
+
+    downloadFile(
+      JSON.stringify(exportData, null, 2),
+      'habits.json',
+      'application/json'
+    );
+  };
+
   if (!isClient) {
     return null;
   }
@@ -439,19 +514,55 @@ export function HabitTracker() {
           Quantified Self
         </h2>
         
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Input
-            type="text"
-            value={newHabit}
-            onChange={(e) => setNewHabit(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-            placeholder="New Habit"
-            className="w-full sm:w-auto sm:max-w-xs"
-          />
-          <Button onClick={addHabit} size="sm">
-            <Plus className="w-4 h-4 mr-1" />
-            Add
-          </Button>
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="flex gap-2 flex-1 sm:flex-initial">
+            <Input
+              type="text"
+              value={newHabit}
+              onChange={(e) => setNewHabit(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addHabit()}
+              placeholder="New Habit"
+              className="w-full sm:w-auto sm:max-w-xs"
+            />
+            <Button onClick={addHabit} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Add
+            </Button>
+          </div>
+
+          <Separator orientation="vertical" className="h-8 hidden sm:block" />
+          
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src="/avatar.jpg" alt="Profile" />
+                    <AvatarFallback>US</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem className="flex flex-col items-start">
+                  <div className="font-medium">User Name</div>
+                  <div className="text-sm text-muted-foreground">user@example.com</div>
+                </DropdownMenuItem>
+                <DropdownMenuItem>Profile Settings</DropdownMenuItem>
+                <DropdownMenuItem>Preferences</DropdownMenuItem>
+                <Separator className="my-1" />
+                <DropdownMenuItem onClick={exportToCSV}>
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToJSON}>
+                  Export as JSON
+                </DropdownMenuItem>
+                <Separator className="my-1" />
+                <DropdownMenuItem className="text-red-600">
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
