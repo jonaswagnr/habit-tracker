@@ -508,7 +508,11 @@ export function HabitTracker() {
                   {sortedHabits.map((habit) => (
                     <td
                       key={habit.id}
-                      className="border-b border-x-0 p-2 text-center cursor-pointer hover:bg-gray-50 w-[66px] min-w-[66px] max-w-[66px]"
+                      className={`p-2 text-center cursor-pointer hover:bg-gray-50 w-[66px] min-w-[66px] max-w-[66px] ${
+                        isHabitCompleted(habit, day.date) 
+                          ? '' // Keine border wenn completed
+                          : 'border-b border-x-0' // border nur wenn nicht completed
+                      }`}
                       onClick={() => toggleHabit(habit.id, day.date)}
                       style={{
                         backgroundColor: isHabitCompleted(habit, day.date) 
