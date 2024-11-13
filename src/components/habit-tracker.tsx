@@ -31,6 +31,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Habit {
   id: string;
@@ -164,13 +166,35 @@ export function HabitTracker() {
   );
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
   const { toast } = useToast();
+  const [isPerformanceSorted, setIsPerformanceSorted] = useState(false);
 
-  // Sortierte Habits
+  // Add this function to calculate habit performance
+  const calculateHabitPerformance = (habit: Habit): number => {
+    const today = new Date();
+    const last7Days = Array.from({length: 7}, (_, i) => {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      return formatDate(date);
+    });
+
+    return habit.entries.filter(entry => 
+      last7Days.includes(formatDate(new Date(entry.date))) && 
+      entry.completed
+    ).length;
+  };
+
+  // Modify the sortedHabits memo to include performance sorting
   const sortedHabits = useMemo(() => {
-    return habitOrder
-      .map(id => habits.find(h => h.id === id))
-      .filter((h): h is Habit => h !== undefined);
-  }, [habits, habitOrder]);
+    if (!isPerformanceSorted) {
+      return habitOrder
+        .map(id => habits.find(h => h.id === id))
+        .filter((h): h is Habit => h !== undefined);
+    }
+
+    // Sort by performance when the switch is on
+    return [...habits]
+      .sort((a, b) => calculateHabitPerformance(a) - calculateHabitPerformance(b));
+  }, [habits, habitOrder, isPerformanceSorted]);
 
   // Berechne die minimale Tabellenbreite
   const minTableWidth = useMemo(() => {
@@ -201,6 +225,15 @@ export function HabitTracker() {
       localStorage.setItem('habitOrder', JSON.stringify(habitOrder));
     }
   }, [habitOrder]);
+
+  useEffect(() => {
+    if (!isPerformanceSorted) {
+      const savedOrder = localStorage.getItem('habitOrder');
+      if (savedOrder) {
+        setHabitOrder(JSON.parse(savedOrder));
+      }
+    }
+  }, [isPerformanceSorted]);
 
   const initializeDays = () => {
     const days: TrackedDay[] = [];
@@ -346,13 +379,6 @@ export function HabitTracker() {
   const formatWeekday = (date: Date): string => {
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return weekdays[date.getDay()];
-  };
-
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   };
 
   const isToday = (date: Date): boolean => {
@@ -641,6 +667,19 @@ export function HabitTracker() {
               <Plus className="w-4 h-4 mr-1" />
               Add
             </Button>
+          </div>
+
+          <Separator orientation="vertical" className="h-8 hidden sm:block" />
+          
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="performance-sort"
+              checked={isPerformanceSorted}
+              onCheckedChange={setIsPerformanceSorted}
+            />
+            <Label htmlFor="performance-sort" className="text-sm">
+              Sort by Performance
+            </Label>
           </div>
 
           <Separator orientation="vertical" className="h-8 hidden sm:block" />
