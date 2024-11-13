@@ -33,6 +33,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { AddHabit } from '@/components/add-habit';
 
 interface Habit {
   id: string;
@@ -150,7 +151,6 @@ const downloadFile = (content: string, filename: string, type: string) => {
 
 export function HabitTracker() {
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [newHabit, setNewHabit] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [trackedDays, setTrackedDays] = useState<TrackedDay[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -185,15 +185,20 @@ export function HabitTracker() {
 
   // Modify the sortedHabits memo to include performance sorting
   const sortedHabits = useMemo(() => {
+    console.log('Current habits:', habits); // Debug log
+    console.log('Current habitOrder:', habitOrder); // Debug log
+    
     if (!isPerformanceSorted) {
+      if (habitOrder.length === 0) {
+        return habits;
+      }
       return habitOrder
         .map(id => habits.find(h => h.id === id))
         .filter((h): h is Habit => h !== undefined);
     }
 
-    // Sort by performance when the switch is on
     return [...habits]
-      .sort((a, b) => calculateHabitPerformance(a) - calculateHabitPerformance(b));
+      .sort((a, b) => calculateHabitPerformance(b) - calculateHabitPerformance(a));
   }, [habits, habitOrder, isPerformanceSorted]);
 
   // Berechne die minimale Tabellenbreite
@@ -215,10 +220,9 @@ export function HabitTracker() {
     const savedOrder = localStorage.getItem('habitOrder');
     if (savedOrder) {
       setHabitOrder(JSON.parse(savedOrder));
-    } else {
-      setHabitOrder(habits.map(h => h.id));
     }
-  }, [habits]);
+    fetchHabits();
+  }, []);
 
   useEffect(() => {
     if (habitOrder.length > 0) {
@@ -274,33 +278,21 @@ export function HabitTracker() {
       const response = await fetch('/api/habits');
       if (!response.ok) throw new Error('Failed to fetch habits');
       const data = await response.json();
+      console.log('Fetched habits:', data);
       setHabits(data);
+      
+      // Update habitOrder to include all habits while preserving existing order
+      setHabitOrder(prevOrder => {
+        const allHabitIds = data.map((habit: Habit) => habit.id);
+        const newOrder = [
+          ...prevOrder,
+          ...allHabitIds.filter(id => !prevOrder.includes(id))
+        ];
+        console.log('Updated habit order:', newOrder);
+        return newOrder;
+      });
     } catch (error) {
       console.error('Failed to fetch habits:', error);
-    }
-  };
-
-  const addHabit = async () => {
-    if (!newHabit.trim()) return;
-
-    try {
-      const response = await fetch('/api/habits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newHabit })
-      });
-
-      if (!response.ok) throw new Error('Failed to add habit');
-      
-      const habit = await response.json();
-      
-      // Aktualisiere die habitOrder mit der neuen Habit-ID
-      setHabitOrder(prevOrder => [...prevOrder, habit.id]);
-      
-      await fetchHabits();
-      setNewHabit('');
-    } catch (error) {
-      console.error('Failed to add habit:', error);
     }
   };
 
@@ -663,6 +655,11 @@ export function HabitTracker() {
     return habits;
   };
 
+  const handleHabitAdded = async (newHabitId: string) => {
+    console.log('New habit added with ID:', newHabitId);
+    await fetchHabits(); // This will now handle updating both habits and habitOrder
+  };
+
   if (!isClient) {
     return null;
   }
@@ -678,21 +675,11 @@ export function HabitTracker() {
         </div>
         
         <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="flex gap-2 flex-1 sm:flex-initial">
-            <Input
-              type="text"
-              value={newHabit}
-              onChange={(e) => setNewHabit(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-              placeholder="New Habit"
-              className="w-full sm:w-auto sm:max-w-xs"
-            />
-            <Button onClick={addHabit} size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              Add
-            </Button>
-          </div>
-
+          <AddHabit 
+            onHabitAdded={handleHabitAdded} 
+            className="flex-1 sm:flex-initial"
+          />
+          
           <Separator orientation="vertical" className="h-8 hidden sm:block" />
           
           <div className="flex items-center space-x-2">

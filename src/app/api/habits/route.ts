@@ -24,6 +24,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const json = await request.json();
+    console.log('Received request to create habit:', json); // Debug log
     
     // Check if an inactive habit with this name exists
     const existingHabit = await prisma.habit.findFirst({
@@ -33,24 +34,28 @@ export async function POST(request: Request) {
       }
     });
 
+    let habit;
     if (existingHabit) {
       // Reactivate the existing habit
-      const updatedHabit = await prisma.habit.update({
+      habit = await prisma.habit.update({
         where: { id: existingHabit.id },
         data: { active: true }
       });
-      return NextResponse.json(updatedHabit, { status: 200 });
+      console.log('Reactivated existing habit:', habit); // Debug log
+    } else {
+      // Create new habit
+      habit = await prisma.habit.create({
+        data: { 
+          name: json.name,
+          active: true
+        },
+      });
+      console.log('Created new habit:', habit); // Debug log
     }
-
-    // Create new habit if none exists
-    const habit = await prisma.habit.create({
-      data: { 
-        name: json.name,
-        active: true
-      },
-    });
-    return NextResponse.json(habit, { status: 201 });
+    
+    return NextResponse.json(habit);
   } catch (error) {
+    console.error('Error in POST /api/habits:', error); // Debug log
     return NextResponse.json(
       { error: 'Failed to create habit' },
       { status: 500 }
