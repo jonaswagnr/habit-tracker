@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
+import { HabitModal } from '@/components/habit-modal';
 
 interface AddHabitProps {
   onHabitAdded?: (newHabitId: string) => void;
@@ -12,17 +12,15 @@ interface AddHabitProps {
 }
 
 export function AddHabit({ onHabitAdded, className = '' }: AddHabitProps) {
-  const [newHabit, setNewHabit] = useState('');
+  const [open, setOpen] = useState(false);
   const { toast } = useToast();
 
-  const addHabit = async () => {
-    if (!newHabit.trim()) return;
-
+  const addHabit = async (name: string, emoji: string) => {
     try {
       const response = await fetch('/api/habits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newHabit })
+        body: JSON.stringify({ name, emoji })
       });
 
       if (!response.ok) {
@@ -30,18 +28,14 @@ export function AddHabit({ onHabitAdded, className = '' }: AddHabitProps) {
       }
       
       const habit = await response.json();
-      console.log('New habit created:', habit);
       
       toast({
         title: "Success",
         description: "New habit added successfully",
       });
 
-      setNewHabit('');
       if (habit.id) {
         onHabitAdded?.(habit.id);
-      } else {
-        console.error('No habit ID received from server');
       }
     } catch (error) {
       console.error('Failed to add habit:', error);
@@ -54,19 +48,22 @@ export function AddHabit({ onHabitAdded, className = '' }: AddHabitProps) {
   };
 
   return (
-    <div className={`flex gap-2 ${className}`}>
-      <Input
-        type="text"
-        value={newHabit}
-        onChange={(e) => setNewHabit(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && addHabit()}
-        placeholder="New Habit"
-        className="w-full sm:w-auto sm:max-w-xs"
-      />
-      <Button onClick={addHabit} size="sm">
+    <>
+      <Button 
+        onClick={() => setOpen(true)} 
+        size="sm"
+        className={className}
+      >
         <Plus className="w-4 h-4 mr-1" />
-        Add
+        Add Habit
       </Button>
-    </div>
+
+      <HabitModal
+        open={open}
+        onOpenChange={setOpen}
+        onSubmit={addHabit}
+        title="Add New Habit"
+      />
+    </>
   );
 } 
