@@ -5,15 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { HabitModal } from '@/components/habit-modal';
+import { useHabits } from '@/contexts/habits-context';
 
 interface AddHabitProps {
-  onHabitAdded?: (newHabitId: string) => void;
   className?: string;
 }
 
-export function AddHabit({ onHabitAdded, className = '' }: AddHabitProps) {
+export function AddHabit({ className = '' }: AddHabitProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const { refreshHabits } = useHabits();
 
   const addHabit = async (name: string, emoji: string) => {
     try {
@@ -31,12 +32,11 @@ export function AddHabit({ onHabitAdded, className = '' }: AddHabitProps) {
       
       toast({
         title: "Success",
-        description: "New habit added successfully",
+        description: "Habit added successfully",
       });
 
-      if (habit.id) {
-        onHabitAdded?.(habit.id);
-      }
+      setOpen(false);
+      refreshHabits(); // Trigger refresh
     } catch (error) {
       console.error('Failed to add habit:', error);
       toast({

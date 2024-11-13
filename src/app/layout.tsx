@@ -1,25 +1,25 @@
-import './globals.css'
-import './fonts.css'
-import { Toaster } from "@/components/ui/toaster"
+import type { Metadata } from 'next';
+import './globals.css';
+import { Toaster } from "@/components/ui/toaster";
 
-export const metadata = {
-  title: 'Habit Tracker',
-  description: 'Track your daily habits',
-}
+export const metadata: Metadata = {
+  title: 'nugs',
+  description: 'Track your habits',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <html lang="de">
-      <body className="w-full m-0 p-0">
-        <main className="w-full">
+    <html lang="en">
+      <body className="font-['Avenir_Next']">
+        <div className="min-h-screen">
           {children}
-        </main>
-        <Toaster />
+          <Toaster />
+        </div>
       </body>
     </html>
-  )
+  );
 }

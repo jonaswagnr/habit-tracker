@@ -1,9 +1,5 @@
-import { HabitTracker } from '@/components/habit-tracker'
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return (
-    <div className="w-full">
-      <HabitTracker />
-    </div>
-  )
+  redirect('/habits');
 }

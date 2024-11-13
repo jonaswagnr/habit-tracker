@@ -296,6 +296,21 @@ export function HabitTracker() {
     }
   };
 
+  useEffect(() => {
+    fetchHabits();
+    
+    // Add event listener for habits changes
+    const handleHabitsChanged = () => {
+      fetchHabits();
+    };
+    
+    window.addEventListener('habits-changed', handleHabitsChanged);
+    
+    return () => {
+      window.removeEventListener('habits-changed', handleHabitsChanged);
+    };
+  }, []);
+
   const removeHabit = async (id: string) => {
     try {
       const response = await fetch('/api/habits', {
