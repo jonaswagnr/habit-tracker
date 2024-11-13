@@ -312,10 +312,31 @@ export function HabitTracker() {
         body: JSON.stringify({ id })
       });
       
-      if (!response.ok) throw new Error('Failed to delete habit');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete habit');
+      }
+
+      toast({
+        title: "Success",
+        description: data.message === 'Deleted' ? 
+          "Habit deleted successfully" : 
+          "Habit deactivated successfully",
+      });
+
       await fetchHabits();
+      
+      // Update habitOrder by removing the deleted habit
+      setHabitOrder(prevOrder => prevOrder.filter(habitId => habitId !== id));
+
     } catch (error) {
       console.error('Failed to remove habit:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove habit",
+        variant: "destructive",
+      });
     }
   };
 
@@ -649,9 +670,12 @@ export function HabitTracker() {
   return (
     <div className="w-full">
       <div className="px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
-        <h2 className="text-4xl font-bold">
-          Quantified Self
-        </h2>
+        <div className="flex items-center gap-2">
+          <img src="/logo.svg" alt="nugs logo" className="h-8 w-8" />
+          <h2 className="text-2xl font-bold">
+            nugs
+          </h2>
+        </div>
         
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <div className="flex gap-2 flex-1 sm:flex-initial">
@@ -678,7 +702,7 @@ export function HabitTracker() {
               onCheckedChange={setIsPerformanceSorted}
             />
             <Label htmlFor="performance-sort" className="text-sm">
-              Sort by Performance
+              Focus Mode
             </Label>
           </div>
 
@@ -764,10 +788,10 @@ export function HabitTracker() {
           >
             <thead>
               <tr>
-                <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium">
+                <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium text-[13px]">
                   Weekday
                 </th>
-                <th className="border-t border-b border-x-0 p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium">
+                <th className="border-t border-b border-x-0 p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium text-[13px]">
                   Date
                 </th>
                 <SortableContext 
@@ -783,7 +807,7 @@ export function HabitTracker() {
                     />
                   ))}
                 </SortableContext>
-                <th className="border-t border-b border-x-0 p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium">
+                <th className="border-t border-b border-x-0 p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium text-[13px]">
                   Journal
                 </th>
               </tr>
@@ -796,10 +820,10 @@ export function HabitTracker() {
                     backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white'
                   }}
                 >
-                  <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center">
+                  <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center text-[13px]">
                     {formatWeekday(day.date)}
                   </td>
-                  <td className="border-b border-x-0 p-2 font-medium w-[100px] min-w-[100px] max-w-[100px] text-center">
+                  <td className="border-b border-x-0 p-2 font-medium w-[100px] min-w-[100px] max-w-[100px] text-center text-[13px]">
                     {formatDate(day.date)}
                   </td>
                   {sortedHabits.map((habit) => (
