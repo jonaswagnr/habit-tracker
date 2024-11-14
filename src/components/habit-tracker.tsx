@@ -184,23 +184,33 @@ export function HabitTracker() {
     ).length;
   };
 
-  // Modify the sortedHabits memo to include performance sorting
+  const calculatePerformance = (habit: Habit): number => {
+    const last7Days = trackedDays.slice(0, 7);
+    const completedCount = last7Days.reduce((count, day) => {
+      const isCompleted = habit.entries.some(
+        entry => formatDate(new Date(entry.date)) === formatDate(day.date) && entry.completed
+      );
+      return count + (isCompleted ? 1 : 0);
+    }, 0);
+    return completedCount / 7;
+  };
+
   const sortedHabits = useMemo(() => {
-    console.log('Current habits:', habits); // Debug log
-    console.log('Current habitOrder:', habitOrder); // Debug log
-    
     if (!isPerformanceSorted) {
-      if (habitOrder.length === 0) {
-        return habits;
-      }
-      return habitOrder
-        .map(id => habits.find(h => h.id === id))
-        .filter((h): h is Habit => h !== undefined);
+      return habits.sort((a, b) => {
+        const orderA = habitOrder.indexOf(a.id);
+        const orderB = habitOrder.indexOf(b.id);
+        return orderA - orderB;
+      });
     }
 
-    return [...habits]
-      .sort((a, b) => calculateHabitPerformance(b) - calculateHabitPerformance(a));
-  }, [habits, habitOrder, isPerformanceSorted]);
+    // Sort by performance (lowest first)
+    return [...habits].sort((a, b) => {
+      const performanceA = calculatePerformance(a);
+      const performanceB = calculatePerformance(b);
+      return performanceA - performanceB;
+    });
+  }, [habits, habitOrder, isPerformanceSorted, trackedDays]);
 
   // Berechne die minimale Tabellenbreite
   const minTableWidth = useMemo(() => {
