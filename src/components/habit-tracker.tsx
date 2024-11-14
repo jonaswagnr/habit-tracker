@@ -87,7 +87,7 @@ function SortableHabitHeader({ habit, onEdit, onDelete }: any) {
     <th 
       ref={setNodeRef}
       style={style}
-      className="border-t border-b border-x-0 p-2 w-[66px] min-w-[66px] max-w-[66px] text-center font-['Avenir_Next'] font-medium"
+      className="border-b border-x-0 p-2 w-[66px] min-w-[66px] max-w-[66px] text-center font-['Avenir_Next'] font-medium"
       {...attributes}
       {...listeners}
     >
@@ -694,10 +694,10 @@ export function HabitTracker() {
           >
             <thead>
               <tr>
-                <th className="border-t border-b border-x-0 p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium text-[13px]">
+                <th className="border-b p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium text-[13px]">
                   Weekday
                 </th>
-                <th className="border-t border-b border-x-0 p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium text-[13px]">
+                <th className="border-b p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium text-[13px]">
                   Date
                 </th>
                 <SortableContext 
@@ -713,7 +713,7 @@ export function HabitTracker() {
                     />
                   ))}
                 </SortableContext>
-                <th className="border-t border-b border-x-0 p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium text-[13px]">
+                <th className="border-b p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium text-[13px]">
                   Journal
                 </th>
               </tr>
