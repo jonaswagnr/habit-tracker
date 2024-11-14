@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AddHabit } from '@/components/add-habit';
+import { useHabits } from '@/contexts/habits-context';
 
 interface Habit {
   id: string;
@@ -150,6 +151,7 @@ const downloadFile = (content: string, filename: string, type: string) => {
 };
 
 export function HabitTracker() {
+  const { isPerformanceSorted } = useHabits();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [trackedDays, setTrackedDays] = useState<TrackedDay[]>([]);
@@ -166,7 +168,6 @@ export function HabitTracker() {
   );
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
   const { toast } = useToast();
-  const [isPerformanceSorted, setIsPerformanceSorted] = useState(false);
 
   // Add this function to calculate habit performance
   const calculateHabitPerformance = (habit: Habit): number => {
@@ -680,104 +681,7 @@ export function HabitTracker() {
   }
 
   return (
-    <div className="w-full">
-      <div className="px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-2">
-        <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="nugs logo" className="h-8 w-8" />
-          <h2 className="text-2xl font-bold">
-            nugs
-          </h2>
-        </div>
-        
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <AddHabit 
-            onHabitAdded={handleHabitAdded} 
-            className="flex-1 sm:flex-initial"
-          />
-          
-          <Separator orientation="vertical" className="h-8 hidden sm:block" />
-          
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="performance-sort"
-              checked={isPerformanceSorted}
-              onCheckedChange={setIsPerformanceSorted}
-            />
-            <Label htmlFor="performance-sort" className="text-sm">
-              Focus Mode
-            </Label>
-          </div>
-
-          <Separator orientation="vertical" className="h-8 hidden sm:block" />
-          
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatar.jpg" alt="Profile" />
-                    <AvatarFallback>US</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem className="flex flex-col items-start">
-                  <div className="font-medium">User Name</div>
-                  <div className="text-sm text-muted-foreground">user@example.com</div>
-                </DropdownMenuItem>
-                <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-                <DropdownMenuItem>Preferences</DropdownMenuItem>
-                <Separator className="my-1" />
-                <DropdownMenuItem onClick={exportToCSV}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToJSON}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export as JSON
-                </DropdownMenuItem>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Import Data
-                    </DropdownMenuItem>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Import Data</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="flex flex-col gap-2">
-                        <label htmlFor="file-upload" className="text-sm font-medium">
-                          Choose a file to import
-                        </label>
-                        <Input
-                          id="file-upload"
-                          type="file"
-                          accept=".csv,.json"
-                          onChange={(e) => {
-                            console.log("File input change event triggered");
-                            handleFileUpload(e);
-                          }}
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          Supported formats: CSV, JSON
-                        </p>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                <Separator className="my-1" />
-                <DropdownMenuItem className="text-red-600">
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-
+    <div className="w-full max-w-full overflow-hidden">
       <div className="w-full overflow-x-auto">
         <DndContext 
           sensors={sensors}
