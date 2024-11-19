@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, X, ChevronLeft, ChevronRight, Edit2, GripVertical, Download, Upload } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit2, Download, Upload } from 'lucide-react';
 import debounce from 'lodash/debounce';
 import { HabitHeaderMenu } from '@/components/habit-header-menu';
 import { 
@@ -87,7 +87,7 @@ function SortableHabitHeader({ habit, onEdit, onDelete }: any) {
     <th 
       ref={setNodeRef}
       style={style}
-      className="border-b border-x-0 p-2 w-[66px] min-w-[66px] max-w-[66px] text-center font-['Avenir_Next'] font-medium"
+      className="border-b border-x-0 p-2 w-[66px] min-w-[66px] max-w-[66px] text-center font-['Avenir_Next'] font-medium cursor-move"
       {...attributes}
       {...listeners}
     >
@@ -704,10 +704,10 @@ export function HabitTracker() {
           >
             <thead>
               <tr>
-                <th className="border-b p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium text-[13px]">
+                <th className="border-b border-border p-2 w-[80px] min-w-[80px] text-center font-['Avenir_Next'] font-medium text-[13px] dark:text-foreground">
                   Weekday
                 </th>
-                <th className="border-b p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium text-[13px]">
+                <th className="border-b border-border p-2 w-[100px] min-w-[100px] max-w-[100px] text-center font-['Avenir_Next'] font-medium text-[13px] dark:text-foreground">
                   Date
                 </th>
                 <SortableContext 
@@ -723,7 +723,7 @@ export function HabitTracker() {
                     />
                   ))}
                 </SortableContext>
-                <th className="border-b p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium text-[13px]">
+                <th className="border-b border-border p-2 w-[250px] min-w-[250px] text-center font-['Avenir_Next'] font-medium text-[13px] dark:text-foreground">
                   Journal
                 </th>
               </tr>
@@ -732,43 +732,56 @@ export function HabitTracker() {
               {trackedDays.map((day) => (
                 <tr 
                   key={formatDate(day.date)}
-                  style={{
-                    backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white'
-                  }}
+                  className={`${
+                    isWeekend(day.date) 
+                      ? 'bg-muted dark:bg-muted/50' 
+                      : 'bg-background dark:bg-background'
+                  }`}
                 >
-                  <td className="border-b border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center text-[13px]">
+                  <td className="border-b border-border border-x-0 p-2 font-medium w-[80px] min-w-[80px] text-center text-[13px] dark:text-foreground">
                     {formatWeekday(day.date)}
                   </td>
-                  <td className="border-b border-x-0 p-2 font-medium w-[100px] min-w-[100px] max-w-[100px] text-center text-[13px]">
+                  <td className="border-b border-border border-x-0 p-2 font-medium w-[100px] min-w-[100px] max-w-[100px] text-center text-[13px] dark:text-foreground">
                     {formatDate(day.date)}
                   </td>
                   {sortedHabits.map((habit) => (
                     <td
                       key={habit.id}
-                      className={`p-2 text-center cursor-pointer hover:bg-gray-50 w-[66px] min-w-[66px] max-w-[66px] ${
-                        isHabitCompleted(habit, day.date) 
-                          ? '' // Keine border wenn completed
-                          : 'border-b border-x-0' // border nur wenn nicht completed
-                      }`}
+                      className={`
+                        p-2 text-center cursor-pointer
+                        ${isHabitCompleted(habit, day.date) 
+                          ? '' 
+                          : 'border-b border-border border-x-0'
+                        }
+                        ${isWeekend(day.date) 
+                          ? 'hover:bg-muted/80 dark:hover:bg-muted/30' 
+                          : 'hover:bg-muted dark:hover:bg-muted/50'
+                        }
+                      `}
                       onClick={() => toggleHabit(habit.id, day.date)}
                       style={{
                         backgroundColor: isHabitCompleted(habit, day.date) 
                           ? getStreakColor(habit, day.date)
-                          : isWeekend(day.date) ? '#f4f4f4' : 'white',
+                          : 'inherit',
                         transition: 'background-color 0.2s'
                       }}
                     />
                   ))}
-                  <td className="border-b border-x-0 p-0 w-[250px] min-w-[250px]">
+                  <td className="border-b border-border border-x-0 p-0 w-[250px] min-w-[250px]">
                     <textarea
                       value={journalDrafts[formatDate(day.date)] ?? habits[0]?.entries.find(e => formatDate(new Date(e.date)) === formatDate(day.date))?.journal ?? ''}
                       onChange={(e) => handleJournalChange(day.date, e.target.value)}
                       onBlur={(e) => updateJournal(day.date, e.target.value)}
                       placeholder="..."
-                      className="w-full h-full min-h-[38px] p-2 border-none resize-y focus:outline-none focus:ring-0 text-[80%]"
-                      style={{
-                        backgroundColor: isWeekend(day.date) ? '#f4f4f4' : 'white',
-                      }}
+                      className={`
+                        w-full h-full min-h-[38px] p-2 border-none resize-y 
+                        focus:outline-none focus:ring-0 text-[80%]
+                        bg-transparent dark:text-foreground
+                        ${isWeekend(day.date) 
+                          ? 'bg-muted dark:bg-muted/50' 
+                          : 'bg-background dark:bg-background'
+                        }
+                      `}
                     />
                   </td>
                 </tr>
@@ -781,7 +794,9 @@ export function HabitTracker() {
       <div className="px-6 py-4">
         <div className="flex justify-end items-center gap-4">
           <div className="flex items-center gap-2">
-            <label htmlFor="pageSize" className="whitespace-nowrap">Zeilen pro Seite:</label>
+            <label htmlFor="pageSize" className="whitespace-nowrap dark:text-foreground">
+              Zeilen pro Seite:
+            </label>
             <Input
               id="pageSize"
               type="number"
@@ -801,7 +816,7 @@ export function HabitTracker() {
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span>
+            <span className="dark:text-foreground">
               Seite {currentPage + 1} von {totalPages}
             </span>
             <Button

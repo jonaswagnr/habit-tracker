@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Download, Upload } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useTheme } from "next-themes"
 
 interface Habit {
   id: string;
@@ -51,6 +52,7 @@ const downloadFile = (content: string, filename: string, type: string) => {
 export default function PreferencesPage() {
   const { toast } = useToast();
   const [habits, setHabits] = useState<Habit[]>([]);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     fetchHabits();
@@ -247,7 +249,13 @@ export default function PreferencesPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label htmlFor="dark-mode">Dark Mode</Label>
-              <Switch id="dark-mode" />
+              <Switch 
+                id="dark-mode" 
+                checked={theme === "dark"}
+                onCheckedChange={(checked) => {
+                  setTheme(checked ? "dark" : "light")
+                }}
+              />
             </div>
           </CardContent>
         </Card>
