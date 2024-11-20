@@ -774,14 +774,24 @@ export function HabitTracker() {
                       onBlur={(e) => updateJournal(day.date, e.target.value)}
                       placeholder="..."
                       className={`
-                        w-full h-full min-h-[38px] p-2 border-none resize-y 
-                        focus:outline-none focus:ring-0 text-[80%]
+                        w-full h-full min-h-[38px] p-2 
+                        border-none focus:outline-none focus:ring-0 
+                        text-[80%] transition-colors
                         bg-transparent dark:text-foreground
+                        overflow-hidden
                         ${isWeekend(day.date) 
                           ? 'bg-muted dark:bg-muted/50' 
                           : 'bg-background dark:bg-background'
                         }
+                        hover:resize-handle:bg-muted-foreground/30
+                        dark:hover:resize-handle:bg-muted-foreground/50
                       `}
+                      style={{
+                        resize: 'vertical',
+                        minHeight: '38px',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                      }}
                     />
                   </td>
                 </tr>

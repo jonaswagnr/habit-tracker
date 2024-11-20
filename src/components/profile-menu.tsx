@@ -25,7 +25,7 @@ export function ProfileMenu({
   avatarFallback = "US"
 }: ProfileMenuProps) {
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
@@ -34,16 +34,20 @@ export function ProfileMenu({
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem className="flex flex-col items-start">
+      <DropdownMenuContent 
+        align="end" 
+        className="w-56"
+        sideOffset={8}
+      >
+        <DropdownMenuItem className="flex flex-col items-start cursor-default">
           <div className="font-medium">{userName}</div>
           <div className="text-sm text-muted-foreground">{userEmail}</div>
         </DropdownMenuItem>
-        <Link href="/profile">
-          <DropdownMenuItem>Profile Settings</DropdownMenuItem>
+        <Link href="/profile" className="w-full">
+          <DropdownMenuItem className="w-full">Profile Settings</DropdownMenuItem>
         </Link>
-        <Link href="/preferences">
-          <DropdownMenuItem>Preferences</DropdownMenuItem>
+        <Link href="/preferences" className="w-full">
+          <DropdownMenuItem className="w-full">Preferences</DropdownMenuItem>
         </Link>
         <Separator className="my-1" />
         <DropdownMenuItem className="text-red-600">

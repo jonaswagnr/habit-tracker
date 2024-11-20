@@ -29,6 +29,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    --removed-body-scroll-bar-size: 8px;
   }
 
   .dark {
@@ -56,6 +57,91 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+  }
+
+  html {
+    overflow-y: scroll;
+    margin-right: calc(-1 * var(--removed-body-scroll-bar-size)) !important;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+    padding-right: var(--removed-body-scroll-bar-size) !important;
+    width: calc(100% + var(--removed-body-scroll-bar-size));
+  }
+
+  ::-webkit-scrollbar {
+    width: var(--removed-body-scroll-bar-size);
+    height: var(--removed-body-scroll-bar-size);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 hover:bg-muted-foreground/50 transition-colors rounded-full;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/40 hover:bg-muted-foreground/60;
+  }
+
+  textarea {
+    &::-webkit-resizer {
+      @apply dark:border-muted-foreground/30 dark:hover:border-muted-foreground/50;
+      border-width: 2px;
+      border-color: hsl(var(--muted-foreground) / 0.2);
+      background: transparent;
+    }
+    
+    /* Custom resize handle */
+    resize: vertical;
+    background: linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 75%,
+      hsl(var(--muted-foreground) / 0.2) 75%,
+      hsl(var(--muted-foreground) / 0.2) 100%
+    );
+    background-size: 10px 10px;
+    background-position: right bottom;
+    background-repeat: no-repeat;
+    transition: background-color 0.2s;
+  }
+
+  /* Hover state */
+  textarea:hover {
+    background: linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 75%,
+      hsl(var(--muted-foreground) / 0.3) 75%,
+      hsl(var(--muted-foreground) / 0.3) 100%
+    );
+    background-size: 10px 10px;
+    background-position: right bottom;
+    background-repeat: no-repeat;
+  }
+
+  /* Hide scrollbar for textareas specifically */
+  textarea::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* For Firefox */
+  textarea {
+    scrollbar-width: none;
+    -ms-overflow-style: none;  /* For Internet Explorer and Edge */
   }
 }
 
