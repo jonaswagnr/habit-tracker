@@ -7,9 +7,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { useTheme } from "next-themes";
 import Link from 'next/link';
+import { Moon, Sun, Laptop } from "lucide-react";
 
 interface ProfileMenuProps {
   userName?: string;
@@ -24,6 +30,8 @@ export function ProfileMenu({
   avatarUrl = "/avatar.jpg",
   avatarFallback = "US"
 }: ProfileMenuProps) {
+  const { setTheme } = useTheme();
+
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -49,6 +57,27 @@ export function ProfileMenu({
         <Link href="/preferences" className="w-full">
           <DropdownMenuItem className="w-full">Preferences</DropdownMenuItem>
         </Link>
+        
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => setTheme("light")}>
+                <Sun className="mr-2 h-4 w-4" />
+                <span>Light</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")}>
+                <Moon className="mr-2 h-4 w-4" />
+                <span>Dark</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")}>
+                <Laptop className="mr-2 h-4 w-4" />
+                <span>System</span>
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+
         <Separator className="my-1" />
         <DropdownMenuItem className="text-red-600">
           Logout
