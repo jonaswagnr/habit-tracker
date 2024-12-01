@@ -1,20 +1,38 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
+    // Get the user session
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const data = await request.json();
     console.log('Received import data:', data);
 
     if (!data.habits || !Array.isArray(data.habits)) {
-      throw new Error('Invalid import data format');
+      return NextResponse.json(
+        { error: 'Invalid import data format' },
+        { status: 400 }
+      );
     }
 
     const results = [];
     
-    // Get existing habits
+    // Get existing habits for this user
     const existingHabits = await prisma.habit.findMany({
-      where: { active: true },
+      where: { 
+        userId: session.user.id,
+        active: true 
+      },
       select: { name: true, id: true }
     });
 
@@ -44,7 +62,7 @@ export async function POST(request: Request) {
               name: habit.name,
               active: true,
               emoji: habit.emoji,
-              userId: request.headers.get('userId') || '' // Make sure to pass userId in headers
+              userId: session.user.id
             }
           });
 
@@ -55,7 +73,10 @@ export async function POST(request: Request) {
 
           try {
             const entryDate = new Date(entry.date);
-            if (isNaN(entryDate.getTime())) continue;
+            if (isNaN(entryDate.getTime())) {
+              console.warn('Invalid date:', entry.date);
+              continue;
+            }
 
             await prisma.habitEntry.upsert({
               where: {
@@ -89,6 +110,7 @@ export async function POST(request: Request) {
       message: 'Import completed',
       results 
     });
+
   } catch (error) {
     console.error('Import error:', error);
     return NextResponse.json(

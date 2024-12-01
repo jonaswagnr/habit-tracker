@@ -302,9 +302,12 @@ export default function PreferencesPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || 'Import failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || 'Import failed');
       }
+
+      const result = await response.json();
+      console.log('Import result:', result);
 
       toast({
         title: "Success",
