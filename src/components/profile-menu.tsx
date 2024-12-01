@@ -7,13 +7,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { Moon, Sun, Laptop } from "lucide-react";
@@ -21,7 +20,7 @@ import { useSession, signOut } from "next-auth/react";
 
 export function ProfileMenu() {
   const { data: session } = useSession();
-  const { setTheme } = useTheme();
+  const { setTheme, theme } = useTheme();
 
   return (
     <DropdownMenu modal={false}>
@@ -38,9 +37,31 @@ export function ProfileMenu() {
           <div className="font-medium">{session?.user?.name}</div>
           <div className="text-sm text-muted-foreground">{session?.user?.email}</div>
         </DropdownMenuItem>
-        <Link href="/profile" className="w-full">
-          <DropdownMenuItem className="w-full">Profile Settings</DropdownMenuItem>
-        </Link>
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => setTheme('light')}>
+                <Sun className="w-4 h-4 mr-2" />
+                <span>Light</span>
+                {theme === 'light' && <span className="ml-auto">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme('dark')}>
+                <Moon className="w-4 h-4 mr-2" />
+                <span>Dark</span>
+                {theme === 'dark' && <span className="ml-auto">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme('system')}>
+                <Laptop className="w-4 h-4 mr-2" />
+                <span>System</span>
+                {theme === 'system' && <span className="ml-auto">✓</span>}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuPortal>
+        </DropdownMenuSub>
+
         <Link href="/preferences" className="w-full">
           <DropdownMenuItem className="w-full">Preferences</DropdownMenuItem>
         </Link>
