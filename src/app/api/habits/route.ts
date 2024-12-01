@@ -7,16 +7,9 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
     if (!session?.user?.id) {
-      console.log('Unauthorized access attempt');
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    console.log('Fetching habits for user:', session.user.id);
 
     const habits = await prisma.habit.findMany({
       where: {
@@ -25,30 +18,32 @@ export async function GET(request: Request) {
       },
       include: {
         entries: {
-          orderBy: {
-            date: 'desc',
+          select: {
+            date: true,
+            completed: true,
+            journal: true,
           },
         },
       },
-      orderBy: [
-        {
-          order: 'asc',
-        },
-        {
-          createdAt: 'asc', // fallback ordering
-        },
-      ],
+      orderBy: {
+        order: 'asc',
+      },
     });
 
-    console.log(`Found ${habits.length} habits`);
-    return NextResponse.json(habits);
+    // Ensure completed status is explicitly boolean
+    const formattedHabits = habits.map(habit => ({
+      ...habit,
+      entries: habit.entries.map(entry => ({
+        ...entry,
+        completed: Boolean(entry.completed),
+        date: entry.date.toISOString(),
+      })),
+    }));
+
+    return NextResponse.json(formattedHabits);
   } catch (error) {
-    console.error('Error fetching habits:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch habits',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch habits' },
       { status: 500 }
     );
   }

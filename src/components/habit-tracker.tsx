@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X, ChevronLeft, ChevronRight, Edit2, Download, Upload } from 'lucide-react';
@@ -170,6 +170,7 @@ export function HabitTracker() {
   );
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
 
   // Add this function to calculate habit performance
   const calculateHabitPerformance = (habit: Habit): number => {
@@ -286,43 +287,33 @@ export function HabitTracker() {
     setCurrentPage(0);
   };
 
-  const fetchHabits = async () => {
+  const fetchHabits = useCallback(async () => {
     try {
-      const response = await fetch(`/api/habits?userId=${session?.user.id}`);
-      if (!response.ok) throw new Error('Failed to fetch habits');
+      setIsLoading(true);
+      const response = await fetch('/api/habits');
       const data = await response.json();
-      console.log('Fetched habits:', data);
       setHabits(data);
-      
-      // Update habitOrder to include all habits while preserving existing order
-      setHabitOrder(prevOrder => {
-        const allHabitIds = data.map((habit: Habit) => habit.id);
-        const newOrder = [
-          ...prevOrder,
-          ...allHabitIds.filter(id => !prevOrder.includes(id))
-        ];
-        console.log('Updated habit order:', newOrder);
-        return newOrder;
-      });
     } catch (error) {
       console.error('Failed to fetch habits:', error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchHabits();
-    
+
     // Add event listener for habits changes
-    const handleHabitsChanged = () => {
+    const handleHabitsChange = () => {
       fetchHabits();
     };
-    
-    window.addEventListener('habits-changed', handleHabitsChanged);
-    
+
+    window.addEventListener('habits-changed', handleHabitsChange);
+
     return () => {
-      window.removeEventListener('habits-changed', handleHabitsChanged);
+      window.removeEventListener('habits-changed', handleHabitsChange);
     };
-  }, []);
+  }, [fetchHabits]);
 
   const removeHabit = async (id: string) => {
     try {
@@ -429,12 +420,13 @@ export function HabitTracker() {
            date.getFullYear() === today.getFullYear();
   };
 
-  const isHabitCompleted = (habit: Habit, date: Date): boolean => {
-    const dateString = formatDate(date);
+  const isHabitCompleted = useCallback((habit: Habit, date: Date) => {
     return habit.entries?.some(
-      entry => formatDate(new Date(entry.date)) === dateString && entry.completed
-    );
-  };
+      entry => 
+        formatDate(new Date(entry.date)) === formatDate(date) && 
+        entry.completed === true  // Explicitly check for true
+    ) ?? false;
+  }, []);
 
   const totalPages = Math.ceil(totalDays.length / pageSize);
 
