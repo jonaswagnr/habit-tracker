@@ -8,6 +8,39 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  email         String    @unique
+  password      String?
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  habits        Habit[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_token     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
 model Habit {
   id        String   @id @default(cuid())
   name      String
@@ -16,13 +49,15 @@ model Habit {
   entries   HabitEntry[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model HabitEntry {
   id        String   @id @default(cuid())
   date      DateTime
   completed Boolean  @default(false)
-  journal   String?  // Neues optionales Feld für Journal-Einträge
+  journal   String?
   habitId   String
   habit     Habit    @relation(fields: [habitId], references: [id])
 

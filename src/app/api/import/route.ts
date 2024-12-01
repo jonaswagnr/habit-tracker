@@ -12,6 +12,12 @@ export async function POST(request: Request) {
 
     const results = [];
     
+    // Get existing habits
+    const existingHabits = await prisma.habit.findMany({
+      where: { active: true },
+      select: { name: true, id: true }
+    });
+
     // Process each habit
     for (const habit of data.habits) {
       if (!habit.name) {
@@ -21,13 +27,8 @@ export async function POST(request: Request) {
 
       console.log('Processing habit:', habit.name);
 
-      // Create or update habit
-      const existingHabit = await prisma.habit.findFirst({
-        where: { 
-          name: habit.name,
-          active: true
-        }
-      });
+      // Find or create habit
+      const existingHabit = existingHabits.find(h => h.name === habit.name);
 
       const habitRecord = existingHabit 
         ? await prisma.habit.update({
@@ -42,26 +43,19 @@ export async function POST(request: Request) {
             data: {
               name: habit.name,
               active: true,
-              emoji: habit.emoji
+              emoji: habit.emoji,
+              userId: request.headers.get('userId') || '' // Make sure to pass userId in headers
             }
           });
-
-      console.log('Habit record:', habitRecord);
 
       // Process entries for this habit
       if (Array.isArray(habit.entries)) {
         for (const entry of habit.entries) {
-          if (!entry.date) {
-            console.warn('Skipping entry with no date:', entry);
-            continue;
-          }
+          if (!entry.date) continue;
 
           try {
             const entryDate = new Date(entry.date);
-            if (isNaN(entryDate.getTime())) {
-              console.warn('Invalid date:', entry.date);
-              continue;
-            }
+            if (isNaN(entryDate.getTime())) continue;
 
             await prisma.habitEntry.upsert({
               where: {

@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AddHabit } from '@/components/add-habit';
 import { useHabits } from '@/contexts/habits-context';
+import { useSession } from "next-auth/react";
 
 interface Habit {
   id: string;
@@ -151,6 +152,7 @@ const downloadFile = (content: string, filename: string, type: string) => {
 };
 
 export function HabitTracker() {
+  const { data: session } = useSession();
   const { isPerformanceSorted } = useHabits();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isClient, setIsClient] = useState(false);
@@ -286,7 +288,7 @@ export function HabitTracker() {
 
   const fetchHabits = async () => {
     try {
-      const response = await fetch('/api/habits');
+      const response = await fetch(`/api/habits?userId=${session?.user.id}`);
       if (!response.ok) throw new Error('Failed to fetch habits');
       const data = await response.json();
       console.log('Fetched habits:', data);

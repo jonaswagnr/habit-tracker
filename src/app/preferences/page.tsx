@@ -164,47 +164,137 @@ export default function PreferencesPage() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      toast({
+        title: "Error",
+        description: "No file selected",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const fileContent = await file.text();
       let importData;
 
       if (file.name.endsWith('.json')) {
-        importData = JSON.parse(fileContent);
+        try {
+          const jsonData = JSON.parse(fileContent);
+          console.log('Parsed JSON:', jsonData);
+
+          if (!Array.isArray(jsonData)) {
+            throw new Error('JSON data must be an array');
+          }
+
+          // Check the format of the JSON
+          if (jsonData[0]?.name && Array.isArray(jsonData[0]?.entries)) {
+            // Format is already correct (direct habit objects)
+            importData = jsonData;
+          } else if (jsonData[0]?.habits) {
+            // Old format (habits nested under days)
+            const habitNames = new Set<string>();
+            jsonData.forEach((day: any) => {
+              Object.keys(day.habits).forEach(habitName => {
+                habitNames.add(habitName);
+              });
+            });
+
+            importData = Array.from(habitNames).map(habitName => ({
+              name: habitName,
+              entries: jsonData.map((day: any) => ({
+                date: day.date,
+                completed: day.habits[habitName] || false,
+                journal: habitName === Array.from(habitNames)[0] ? day.journal : undefined
+              }))
+            }));
+          } else {
+            throw new Error('Invalid JSON format: Expected either habit objects or daily habit entries');
+          }
+        } catch (error) {
+          console.error('JSON parsing error:', error);
+          throw new Error('Invalid JSON format');
+        }
       } else if (file.name.endsWith('.csv')) {
         // Parse CSV content
-        const lines = fileContent.split('\n');
-        const headers = lines[0].split(',');
-        const habitNames = headers.slice(1, -1).filter(name => name !== 'Weekday');
+        const lines = fileContent.split('\n').map(line => line.trim()).filter(Boolean);
         
+        if (lines.length === 0) {
+          throw new Error('CSV file is empty');
+        }
+
+        const headers = lines[0].split(',').map(header => header.trim());
+        console.log('CSV Headers:', headers);
+
+        if (!headers.includes('Date')) {
+          throw new Error('CSV must include a Date column');
+        }
+
+        // Extract habit names (all columns except Date, Weekday, and Journal)
+        const habitNames = headers
+          .slice(1)  // Skip Date
+          .filter(name => name !== 'Weekday' && name !== 'Journal')
+          .map(name => name.trim());
+
+        console.log('Detected habits:', habitNames);
+
+        if (habitNames.length === 0) {
+          throw new Error('No valid habit columns found in CSV');
+        }
+
         importData = habitNames.map(name => ({
-          name: name.trim(),
+          name,
           entries: []
         }));
 
+        // Process each line
         for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
+          const values = lines[i].split(',').map(v => v.trim());
           
-          const values = lines[i].split(',');
+          if (values.length !== headers.length) {
+            console.warn(`Skipping line ${i + 1}: column count mismatch`);
+            continue;
+          }
+
           const date = values[0];
-          const journal = values[values.length - 1]?.replace(/^"|"$/g, '');
+          const journalIndex = headers.indexOf('Journal');
+          const journal = journalIndex !== -1 ? values[journalIndex]?.replace(/^"|"$/g, '') : undefined;
           
           habitNames.forEach((_, index) => {
-            const valueIndex = index + 2; // +2 to skip Date and Weekday
-            const completed = values[valueIndex]?.trim() === '1';
-            
-            importData[index].entries.push({
-              date,
-              completed,
-              journal: index === 0 ? journal : undefined
-            });
+            const headerIndex = headers.indexOf(habitNames[index]);
+            if (headerIndex !== -1) {  // Only process if header exists
+              const completed = values[headerIndex]?.trim() === '1';
+              
+              importData[index].entries.push({
+                date,
+                completed,
+                journal: index === 0 ? journal : undefined
+              });
+            }
           });
         }
       } else {
-        throw new Error('Unsupported file format');
+        throw new Error('Unsupported file format. Please use .csv or .json');
       }
 
+      console.log('Processed import data:', importData);
+
+      if (!importData || importData.length === 0) {
+        throw new Error('No valid data to import');
+      }
+
+      // Validate the structure of importData
+      if (!importData.every(habit => 
+        habit.name && 
+        Array.isArray(habit.entries) && 
+        habit.entries.every((entry: any) => 
+          entry.date && 
+          typeof entry.completed === 'boolean'
+        )
+      )) {
+        throw new Error('Invalid data structure in import file');
+      }
+
+      // Send to API
       const response = await fetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,7 +302,8 @@ export default function PreferencesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Import failed');
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Import failed');
       }
 
       toast({
@@ -220,8 +311,11 @@ export default function PreferencesPage() {
         description: "Data imported successfully",
       });
 
-      // Refresh habits data after import
-      await fetchHabits();
+      // Refresh habits data
+      if (typeof fetchHabits === 'function') {
+        await fetchHabits();
+      }
+
     } catch (error) {
       console.error('Import error:', error);
       toast({
@@ -231,7 +325,10 @@ export default function PreferencesPage() {
       });
     }
 
-    event.target.value = '';
+    // Reset file input
+    if (event.target) {
+      event.target.value = '';
+    }
   };
 
   return (

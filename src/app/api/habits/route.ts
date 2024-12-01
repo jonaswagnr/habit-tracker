@@ -1,21 +1,31 @@
 // src/app/api/habits/route.ts
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const habits = await prisma.habit.findMany({
       where: {
+        userId: session.user.id,
         active: true
       },
       include: {
         entries: true,
       },
     });
+    
     return NextResponse.json(habits);
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch habits' },
+      { error: "Failed to fetch habits" },
       { status: 500 }
     );
   }
@@ -23,41 +33,26 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const json = await request.json();
-    console.log('Received request to create habit:', json); // Debug log
+    const session = await getServerSession(authOptions);
     
-    // Check if an inactive habit with this name exists
-    const existingHabit = await prisma.habit.findFirst({
-      where: {
-        name: json.name,
-        active: false
-      }
-    });
-
-    let habit;
-    if (existingHabit) {
-      // Reactivate the existing habit
-      habit = await prisma.habit.update({
-        where: { id: existingHabit.id },
-        data: { active: true }
-      });
-      console.log('Reactivated existing habit:', habit); // Debug log
-    } else {
-      // Create new habit
-      habit = await prisma.habit.create({
-        data: { 
-          name: json.name,
-          active: true
-        },
-      });
-      console.log('Created new habit:', habit); // Debug log
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const json = await request.json();
+    
+    const habit = await prisma.habit.create({
+      data: {
+        name: json.name,
+        emoji: json.emoji,
+        userId: session.user.id,
+      },
+    });
     
     return NextResponse.json(habit);
   } catch (error) {
-    console.error('Error in POST /api/habits:', error); // Debug log
     return NextResponse.json(
-      { error: 'Failed to create habit' },
+      { error: "Failed to create habit" },
       { status: 500 }
     );
   }
