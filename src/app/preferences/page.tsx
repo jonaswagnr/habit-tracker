@@ -11,6 +11,7 @@ import { Download, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from "next-themes"
 import { useRouter } from 'next/navigation';
+import { ProfileSettings } from "@/components/profile-settings";
 
 interface Habit {
   id: string;
@@ -196,6 +197,18 @@ export default function PreferencesPage() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
+            <CardTitle>Profile</CardTitle>
+            <CardDescription>
+              Manage your profile settings
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProfileSettings />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Appearance</CardTitle>
             <CardDescription>
               Customize how nugs looks on your device
@@ -223,11 +236,6 @@ export default function PreferencesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="auto-backup">Automatic Backup</Label>
-              <Switch id="auto-backup" />
-            </div>
-            
             <div className="grid grid-cols-2 gap-4">
               <Button 
                 onClick={handleExportJSON} 
