@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Download, Upload } from 'lucide-react';
@@ -245,38 +244,21 @@ export default function PreferencesPage() {
                 Export Data
               </Button>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full flex items-center justify-center gap-2 h-10"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Import Data
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Import Data</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="file-upload">
-                        Choose a file to import
-                      </Label>
-                      <Input
-                        id="file-upload"
-                        type="file"
-                        accept=".json"
-                        onChange={handleFileUpload}
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Supported format: JSON
-                      </p>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2 h-10"
+                onClick={() => document.getElementById('file-upload')?.click()}
+              >
+                <Upload className="w-4 h-4" />
+                Import Data
+                <Input
+                  id="file-upload"
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </Button>
             </div>
           </CardContent>
         </Card>
