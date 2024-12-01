@@ -17,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
-      <body className="overflow-x-hidden">
+      <body 
+        className="overflow-x-hidden"
+        suppressHydrationWarning
+      >
         <SessionProvider>
           <ThemeProvider
             attribute="class"
