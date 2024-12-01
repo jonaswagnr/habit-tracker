@@ -8,24 +8,47 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.id) {
+      console.log('Unauthorized access attempt');
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
+
+    console.log('Fetching habits for user:', session.user.id);
 
     const habits = await prisma.habit.findMany({
       where: {
         userId: session.user.id,
-        active: true
+        active: true,
       },
       include: {
-        entries: true,
+        entries: {
+          orderBy: {
+            date: 'desc',
+          },
+        },
       },
+      orderBy: [
+        {
+          order: 'asc',
+        },
+        {
+          createdAt: 'asc', // fallback ordering
+        },
+      ],
     });
-    
+
+    console.log(`Found ${habits.length} habits`);
     return NextResponse.json(habits);
   } catch (error) {
+    console.error('Error fetching habits:', error);
     return NextResponse.json(
-      { error: "Failed to fetch habits" },
+      { 
+        error: 'Failed to fetch habits',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -112,6 +135,54 @@ export async function PATCH(request: Request) {
     console.error('Failed to update habit:', error);
     return NextResponse.json(
       { error: 'Failed to update habit' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const data = await request.json();
+    
+    // Validate the request body
+    if (!Array.isArray(data) || !data.every(item => item.id && typeof item.order === 'number')) {
+      return NextResponse.json(
+        { error: 'Invalid request format' },
+        { status: 400 }
+      );
+    }
+
+    // Update habits order in a transaction
+    const updates = await prisma.$transaction(
+      data.map(({ id, order }) =>
+        prisma.habit.update({
+          where: {
+            id,
+            userId: session.user.id, // Ensure user owns the habit
+          },
+          data: { order },
+        })
+      )
+    );
+
+    return NextResponse.json(updates);
+
+  } catch (error) {
+    console.error('Error updating habits order:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to update habits order',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

@@ -74,51 +74,64 @@ export default function PreferencesPage() {
     }
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     try {
-      // Headers
-      let csv = ['Date,Weekday'];
-      habits.forEach(habit => {
-        csv[0] += `,${habit.name}`;
-      });
-      csv[0] += ',Journal';
+      const response = await fetch('/api/habits');
+      const habits = await response.json();
 
-      // Get all unique dates from all habits
-      const allDates = new Set<string>();
-      habits.forEach(habit => {
-        habit.entries.forEach(entry => {
-          allDates.add(formatDate(new Date(entry.date)));
+      // Sort habits by order
+      const sortedHabits = habits.sort((a: any, b: any) => a.order - b.order);
+
+      // Get all unique dates
+      const dates = new Set<string>();
+      sortedHabits.forEach((habit: any) => {
+        habit.entries.forEach((entry: any) => {
+          dates.add(entry.date.split('T')[0]);
         });
       });
 
-      // Sort dates in descending order
-      const sortedDates = Array.from(allDates).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+      const sortedDates = Array.from(dates).sort();
 
-      // Data rows
-      sortedDates.forEach(dateStr => {
-        const date = new Date(dateStr);
-        let row = `${dateStr},${formatWeekday(date)}`;
-        
-        habits.forEach(habit => {
-          const entry = habit.entries.find(e => formatDate(new Date(e.date)) === dateStr);
-          const completed = entry?.completed ? '1' : '0';
-          row += `,${completed}`;
+      // Create CSV headers
+      const headers = ['Date', 'Weekday', ...sortedHabits.map((h: any) => h.name), 'Journal'];
+      const rows = [headers.join(',')];
+
+      // Create rows for each date
+      sortedDates.forEach(date => {
+        const row = [date];
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
+        row.push(dayOfWeek);
+
+        // Add completion status for each habit
+        sortedHabits.forEach((habit: any) => {
+          const entry = habit.entries.find((e: any) => e.date.startsWith(date));
+          row.push(entry?.completed ? '1' : '0');
         });
 
-        // Add journal entry
-        const journalEntry = habits[0]?.entries.find(
-          e => formatDate(new Date(e.date)) === dateStr
-        )?.journal || '';
-        row += `,"${journalEntry.replace(/"/g, '""')}"`;  // Escape quotes in journal
+        // Add journal entry (from the first habit that has one for this date)
+        const journalEntry = sortedHabits
+          .map((habit: any) => habit.entries.find((e: any) => e.date.startsWith(date))?.journal)
+          .find((journal: string) => journal) || '';
+        row.push(`"${journalEntry.replace(/"/g, '""')}"`);
 
-        csv.push(row);
+        rows.push(row.join(','));
       });
 
-      downloadFile(csv.join('\n'), 'habits.csv', 'text/csv');
-      
+      // Create and download CSV file
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `habits-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
       toast({
         title: "Success",
-        description: "Data exported successfully as CSV",
+        description: "Data exported successfully",
       });
     } catch (error) {
       console.error('Export error:', error);
@@ -130,27 +143,41 @@ export default function PreferencesPage() {
     }
   };
 
-  const handleExportJSON = () => {
+  const handleExportJSON = async () => {
     try {
-      const exportData = habits.map(habit => ({
+      const response = await fetch('/api/habits');
+      const habits = await response.json();
+
+      // Sort habits by order before export
+      const sortedHabits = habits.sort((a: any, b: any) => a.order - b.order);
+
+      const exportData = sortedHabits.map((habit: any) => ({
         name: habit.name,
         emoji: habit.emoji,
-        entries: habit.entries.map(entry => ({
-          date: formatDate(new Date(entry.date)),
+        order: habit.order, // Include order in export
+        entries: habit.entries.map((entry: any) => ({
+          date: entry.date,
           completed: entry.completed,
           journal: entry.journal
         }))
       }));
 
-      downloadFile(
-        JSON.stringify(exportData, null, 2),
-        'habits.json',
-        'application/json'
-      );
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `habits-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
       toast({
         title: "Success",
-        description: "Data exported successfully as JSON",
+        description: "Data exported successfully",
       });
     } catch (error) {
       console.error('Export error:', error);
@@ -164,157 +191,114 @@ export default function PreferencesPage() {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      toast({
-        title: "Error",
-        description: "No file selected",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!file) return;
 
     try {
       const fileContent = await file.text();
-      let importData;
+      
+      // Validate file content
+      if (!fileContent.trim()) {
+        throw new Error('File is empty');
+      }
 
+      let importData;
       if (file.name.endsWith('.json')) {
         try {
-          const jsonData = JSON.parse(fileContent);
-          console.log('Parsed JSON:', jsonData);
-
-          if (!Array.isArray(jsonData)) {
-            throw new Error('JSON data must be an array');
+          // First validate JSON structure
+          if (!fileContent.startsWith('[') && !fileContent.startsWith('{')) {
+            throw new Error('Invalid JSON format: must start with [ or {');
           }
 
-          // Check the format of the JSON
-          if (jsonData[0]?.name && Array.isArray(jsonData[0]?.entries)) {
-            // Format is already correct (direct habit objects)
-            importData = jsonData;
-          } else if (jsonData[0]?.habits) {
-            // Old format (habits nested under days)
-            const habitNames = new Set<string>();
-            jsonData.forEach((day: any) => {
-              Object.keys(day.habits).forEach(habitName => {
-                habitNames.add(habitName);
-              });
-            });
+          const parsedData = JSON.parse(fileContent);
+          console.log('Parsed JSON:', parsedData);
 
-            importData = Array.from(habitNames).map(habitName => ({
-              name: habitName,
-              entries: jsonData.map((day: any) => ({
-                date: day.date,
-                completed: day.habits[habitName] || false,
-                journal: habitName === Array.from(habitNames)[0] ? day.journal : undefined
-              }))
-            }));
-          } else {
-            throw new Error('Invalid JSON format: Expected either habit objects or daily habit entries');
-          }
-        } catch (error) {
-          console.error('JSON parsing error:', error);
-          throw new Error('Invalid JSON format');
-        }
-      } else if (file.name.endsWith('.csv')) {
-        // Parse CSV content
-        const lines = fileContent.split('\n').map(line => line.trim()).filter(Boolean);
-        
-        if (lines.length === 0) {
-          throw new Error('CSV file is empty');
-        }
-
-        const headers = lines[0].split(',').map(header => header.trim());
-        console.log('CSV Headers:', headers);
-
-        if (!headers.includes('Date')) {
-          throw new Error('CSV must include a Date column');
-        }
-
-        // Extract habit names (all columns except Date, Weekday, and Journal)
-        const habitNames = headers
-          .slice(1)  // Skip Date
-          .filter(name => name !== 'Weekday' && name !== 'Journal')
-          .map(name => name.trim());
-
-        console.log('Detected habits:', habitNames);
-
-        if (habitNames.length === 0) {
-          throw new Error('No valid habit columns found in CSV');
-        }
-
-        importData = habitNames.map(name => ({
-          name,
-          entries: []
-        }));
-
-        // Process each line
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim());
+          // Validate the parsed data structure
+          const habitsArray = Array.isArray(parsedData) ? parsedData : parsedData.habits;
           
-          if (values.length !== headers.length) {
-            console.warn(`Skipping line ${i + 1}: column count mismatch`);
-            continue;
+          if (!Array.isArray(habitsArray)) {
+            throw new Error('Invalid JSON format: expected array of habits');
           }
 
-          const date = values[0];
-          const journalIndex = headers.indexOf('Journal');
-          const journal = journalIndex !== -1 ? values[journalIndex]?.replace(/^"|"$/g, '') : undefined;
-          
-          habitNames.forEach((_, index) => {
-            const headerIndex = headers.indexOf(habitNames[index]);
-            if (headerIndex !== -1) {  // Only process if header exists
-              const completed = values[headerIndex]?.trim() === '1';
-              
-              importData[index].entries.push({
-                date,
-                completed,
-                journal: index === 0 ? journal : undefined
-              });
+          // Validate each habit object
+          habitsArray.forEach((habit, index) => {
+            if (!habit.name) {
+              throw new Error(`Habit at index ${index} is missing a name`);
             }
+            if (!Array.isArray(habit.entries)) {
+              throw new Error(`Habit "${habit.name}" is missing entries array`);
+            }
+            habit.entries.forEach((entry, entryIndex) => {
+              if (!entry.date) {
+                throw new Error(`Entry ${entryIndex} in habit "${habit.name}" is missing a date`);
+              }
+              // Validate date format
+              const date = new Date(entry.date);
+              if (isNaN(date.getTime())) {
+                throw new Error(`Invalid date format in habit "${habit.name}": ${entry.date}`);
+              }
+            });
           });
+
+          // Format the data
+          importData = {
+            habits: habitsArray.map(habit => ({
+              name: habit.name.trim(),
+              emoji: habit.emoji || '',
+              order: typeof habit.order === 'number' ? habit.order : undefined,
+              entries: (habit.entries || []).map(entry => ({
+                date: new Date(entry.date).toISOString().split('T')[0],
+                completed: Boolean(entry.completed),
+                journal: (entry.journal || '').trim()
+              }))
+            }))
+          };
+
+          console.log('Formatted import data:', importData);
+        } catch (parseError) {
+          console.error('JSON parsing error:', parseError);
+          throw new Error(
+            parseError instanceof Error 
+              ? `JSON parsing error: ${parseError.message}` 
+              : 'Invalid JSON format'
+          );
         }
       } else {
-        throw new Error('Unsupported file format. Please use .csv or .json');
+        throw new Error('Unsupported file format. Please use .json');
       }
 
-      console.log('Processed import data:', importData);
-
-      if (!importData || importData.length === 0) {
-        throw new Error('No valid data to import');
-      }
-
-      // Validate the structure of importData
-      if (!importData.every(habit => 
-        habit.name && 
-        Array.isArray(habit.entries) && 
-        habit.entries.every((entry: any) => 
-          entry.date && 
-          typeof entry.completed === 'boolean'
-        )
-      )) {
-        throw new Error('Invalid data structure in import file');
+      // Validate final data structure
+      if (!importData?.habits?.length) {
+        throw new Error('No valid habits found in import file');
       }
 
       // Send to API
       const response = await fetch('/api/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ habits: importData })
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(importData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.details || errorData.error || 'Import failed');
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log('API response:', responseData);
+      } catch (error) {
+        console.error('Error parsing API response:', error);
+        throw new Error('Invalid response from server');
       }
 
-      const result = await response.json();
-      console.log('Import result:', result);
+      if (!response.ok) {
+        throw new Error(responseData.details || responseData.error || 'Import failed');
+      }
 
       toast({
         title: "Success",
         description: "Data imported successfully",
       });
 
-      // Refresh habits data
+      // Refresh habits if needed
       if (typeof fetchHabits === 'function') {
         await fetchHabits();
       }
