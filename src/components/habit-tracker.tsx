@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X, ChevronLeft, ChevronRight, Edit2, Download, Upload } from 'lucide-react';
-import debounce from 'lodash/debounce';
+import { debounce } from 'lodash';
 import { HabitHeaderMenu } from '@/components/habit-header-menu';
 import { 
   DndContext, 
@@ -151,6 +151,28 @@ const downloadFile = (content: string, filename: string, type: string) => {
   URL.revokeObjectURL(url);
 };
 
+// Outside the component
+const debouncedUpdateJournal = debounce(async (date: Date, journal: string, habitId: string) => {
+  try {
+    const response = await fetch('/api/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        habitId,
+        date: formatDate(date),
+        journal
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update journal');
+    }
+  } catch (error) {
+    console.error('Error updating journal:', error);
+    throw error;
+  }
+}, 1000);
+
 export function HabitTracker() {
   const { data: session } = useSession();
   const { isPerformanceSorted } = useHabits();
@@ -200,9 +222,10 @@ export function HabitTracker() {
 
   const sortedHabits = useMemo(() => {
     if (!isPerformanceSorted) {
-      return habits.sort((a, b) => {
-        const orderA = habitOrder.indexOf(a.id);
-        const orderB = habitOrder.indexOf(b.id);
+      // Sort by database order first, then fall back to habitOrder array
+      return [...habits].sort((a, b) => {
+        const orderA = a.order ?? habitOrder.indexOf(a.id);
+        const orderB = b.order ?? habitOrder.indexOf(b.id);
         return orderA - orderB;
       });
     }
@@ -213,7 +236,7 @@ export function HabitTracker() {
       const performanceB = calculatePerformance(b);
       return performanceA - performanceB;
     });
-  }, [habits, habitOrder, isPerformanceSorted, trackedDays]);
+  }, [habits, habitOrder, isPerformanceSorted, calculatePerformance]);
 
   // Berechne die minimale Tabellenbreite
   const minTableWidth = useMemo(() => {
@@ -279,7 +302,13 @@ export function HabitTracker() {
       const response = await fetch('/api/habits');
       const data = await response.json();
       setHabits(data);
-      setHabitOrder(data.map((habit: Habit) => habit.id));
+      
+      // Set habitOrder based on the order field from the database
+      const orderedIds = data
+        .sort((a: Habit, b: Habit) => a.order - b.order)
+        .map((habit: Habit) => habit.id);
+      setHabitOrder(orderedIds);
+      
     } catch (error) {
       console.error('Failed to fetch habits:', error);
     } finally {
@@ -417,58 +446,26 @@ export function HabitTracker() {
 
   const totalPages = Math.ceil(totalDays.length / pageSize);
 
-  const updateJournal = async (date: Date, journal: string) => {
-    try {
-      const primaryHabit = habits[0];
-      if (!primaryHabit) return;
+  const handleJournalChange = useCallback(async (date: Date, value: string) => {
+    const primaryHabit = habits[0];
+    if (!primaryHabit) return;
 
-      console.log('Updating journal:', { date, journal, habitId: primaryHabit.id });
-
-      const response = await fetch('/api/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          habitId: primaryHabit.id,
-          date: formatDate(date),
-          completed: isHabitCompleted(primaryHabit, date),
-          journal: journal
-        })
-      });
-      
-      if (!response.ok) {
-        console.error('Server response not ok:', await response.text());
-        throw new Error('Failed to update journal');
-      }
-
-      const responseData = await response.json();
-      console.log('Server response:', responseData);
-      
-      await fetchHabits();
-    } catch (error) {
-      console.error('Failed to update journal:', error);
-    }
-  };
-
-  function debounce<T extends (...args: any[]) => any>(
-    func: T,
-    wait: number
-  ): (...args: Parameters<T>) => void {
-    let timeout: NodeJS.Timeout;
-    return (...args: Parameters<T>) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  }
-
-  const handleJournalChange = (date: Date, value: string) => {
-    console.log('Journal change:', { date, value });
     const dateKey = formatDate(date);
     setJournalDrafts(prev => ({
       ...prev,
       [dateKey]: value
     }));
-    debouncedUpdate(date, value);
-  };
+
+    try {
+      await debouncedUpdateJournal(date, value, primaryHabit.id);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save journal entry",
+        variant: "destructive",
+      });
+    }
+  }, [habits, toast]);
 
   const isWeekend = (date: Date): boolean => {
     const day = date.getDay();
@@ -484,16 +481,50 @@ export function HabitTracker() {
     useSensor(KeyboardSensor)
   );
 
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = async (event: any) => {
     const {active, over} = event;
     
     if (active.id !== over.id) {
-      setHabitOrder((items) => {
-        const oldIndex = items.indexOf(active.id);
-        const newIndex = items.indexOf(over.id);
-        
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      const newOrder = [...habitOrder];
+      const oldIndex = newOrder.indexOf(active.id);
+      const newIndex = newOrder.indexOf(over.id);
+      
+      const reorderedItems = arrayMove(newOrder, oldIndex, newIndex);
+      setHabitOrder(reorderedItems);
+
+      // Update habits array with new orders
+      const updatedHabits = [...habits].map((habit) => ({
+        ...habit,
+        order: reorderedItems.indexOf(habit.id)
+      }));
+      setHabits(updatedHabits);
+
+      // Save to localStorage as backup
+      localStorage.setItem('habitOrder', JSON.stringify(reorderedItems));
+
+      // Update order in backend
+      try {
+        const orderUpdates = reorderedItems.map((id, index) => ({
+          id,
+          order: index,
+        }));
+
+        await fetch('/api/habits', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderUpdates),
+        });
+      } catch (error) {
+        // Revert changes on error
+        setHabitOrder(newOrder);
+        setHabits(habits);
+        console.error('Failed to update habit order:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save habit order",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -750,9 +781,10 @@ export function HabitTracker() {
                   ))}
                   <td className="border-b border-border border-x-0 p-0 w-[250px] min-w-[250px]">
                     <textarea
-                      value={journalDrafts[formatDate(day.date)] ?? habits[0]?.entries.find(e => formatDate(new Date(e.date)) === formatDate(day.date))?.journal ?? ''}
+                      value={journalDrafts[formatDate(day.date)] ?? habits[0]?.entries.find(e => 
+                        formatDate(new Date(e.date)) === formatDate(day.date)
+                      )?.journal ?? ''}
                       onChange={(e) => handleJournalChange(day.date, e.target.value)}
-                      onBlur={(e) => updateJournal(day.date, e.target.value)}
                       placeholder="..."
                       className={`
                         w-full h-full min-h-[38px] p-2 

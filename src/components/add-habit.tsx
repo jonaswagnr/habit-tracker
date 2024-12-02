@@ -18,17 +18,31 @@ export function AddHabit({ className = '' }: AddHabitProps) {
 
   const addHabit = async (name: string, emoji: string) => {
     try {
+      if (!name.trim()) {
+        toast({
+          title: "Error",
+          description: "Habit name is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const response = await fetch('/api/habits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, emoji })
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          name: name.trim(),
+          emoji: emoji || ''
+        })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to add habit');
+        throw new Error(data.error || 'Failed to add habit');
       }
-      
-      const habit = await response.json();
       
       toast({
         title: "Success",
@@ -36,12 +50,12 @@ export function AddHabit({ className = '' }: AddHabitProps) {
       });
 
       setOpen(false);
-      refreshHabits(); // Trigger refresh
+      refreshHabits();
     } catch (error) {
       console.error('Failed to add habit:', error);
       toast({
         title: "Error",
-        description: "Failed to add habit",
+        description: error instanceof Error ? error.message : "Failed to add habit",
         variant: "destructive",
       });
     }
