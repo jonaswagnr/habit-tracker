@@ -59,22 +59,17 @@
     --chart-5: 340 75% 55%;
   }
 
-  html {
-    overflow-y: scroll;
-    margin-right: calc(-1 * var(--removed-body-scroll-bar-size)) !important;
-    scrollbar-gutter: stable both-edges;
-  }
-
-  body {
+  html, body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
-    padding-right: var(--removed-body-scroll-bar-size) !important;
-    width: calc(100% + var(--removed-body-scroll-bar-size));
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
 
+  /* Scrollbar styles */
   ::-webkit-scrollbar {
-    width: var(--removed-body-scroll-bar-size);
-    height: var(--removed-body-scroll-bar-size);
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
@@ -148,9 +143,6 @@
 @layer base {
   * {
     @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
   }
 }
 

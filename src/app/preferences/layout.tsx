@@ -7,8 +7,8 @@ export default function PreferencesLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="h-[72px] border-b">
+    <div className="h-screen flex flex-col">
+      <header className="flex-none h-[72px] border-b">
         <div className="max-w-[1920px] mx-auto px-6 h-full">
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center gap-2">
@@ -23,8 +23,10 @@ export default function PreferencesLayout({
         </div>
       </header>
 
-      <main className="flex-1 max-w-[1920px] mx-auto w-full px-6 py-6">
-        {children}
+      <main className="flex-1 overflow-y-auto">
+        <div className="h-full max-w-[1920px] mx-auto w-full px-6 py-6">
+          {children}
+        </div>
       </main>
     </div>
   );

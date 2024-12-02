@@ -231,20 +231,6 @@ export function HabitTracker() {
   }, [currentPage, pageSize, totalDays]);
 
   useEffect(() => {
-    const savedOrder = localStorage.getItem('habitOrder');
-    if (savedOrder) {
-      setHabitOrder(JSON.parse(savedOrder));
-    }
-    fetchHabits();
-  }, []);
-
-  useEffect(() => {
-    if (habitOrder.length > 0) {
-      localStorage.setItem('habitOrder', JSON.stringify(habitOrder));
-    }
-  }, [habitOrder]);
-
-  useEffect(() => {
     if (!isPerformanceSorted) {
       const savedOrder = localStorage.getItem('habitOrder');
       if (savedOrder) {
@@ -293,6 +279,7 @@ export function HabitTracker() {
       const response = await fetch('/api/habits');
       const data = await response.json();
       setHabits(data);
+      setHabitOrder(data.map((habit: Habit) => habit.id));
     } catch (error) {
       console.error('Failed to fetch habits:', error);
     } finally {
@@ -685,8 +672,8 @@ export function HabitTracker() {
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden">
-      <div className="w-full overflow-x-auto">
+    <div className="w-full h-full flex flex-col">
+      <div className="flex-1 overflow-x-auto">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -795,7 +782,7 @@ export function HabitTracker() {
         </DndContext>
       </div>
 
-      <div className="px-6 py-4">
+      <div className="flex-none px-6 py-4 border-t">
         <div className="flex justify-end items-center gap-4">
           <div className="flex items-center gap-2">
             <label htmlFor="pageSize" className="whitespace-nowrap dark:text-foreground">
